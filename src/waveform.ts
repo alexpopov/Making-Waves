@@ -121,6 +121,17 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, w, h);
 
+  // Selection zone boundary (top 20%)
+  const selectLineY = h * 0.20;
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, selectLineY);
+  ctx.lineTo(w, selectLineY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
   // Draw colored tint bands for each slice (overlapping slices stack additively)
   for (let i = 0; i < slices.length; i++) {
     const s = slices[i];
@@ -129,10 +140,17 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Skip slices entirely outside the viewport
     if (x2 < 0 || x1 > w) continue;
     const color = sliceColor(i);
-    ctx.fillStyle = i === selectedSlice
+    const isSelected = i === selectedSlice;
+    ctx.fillStyle = isSelected
       ? hexToRgba(color, 0.22)
       : hexToRgba(color, 0.08);
     ctx.fillRect(x1, 0, x2 - x1, h);
+
+    // Selected slice gets a heavier tint in the top selection zone
+    if (isSelected) {
+      ctx.fillStyle = hexToRgba(color, 0.35);
+      ctx.fillRect(x1, 0, x2 - x1, selectLineY);
+    }
   }
 
   // Draw waveform (peaks are already generated for this viewport)

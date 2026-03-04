@@ -122,3 +122,41 @@ export function findSliceAt(state: SlicerState, sampleFrame: number): number {
   }
   return -1;
 }
+
+/**
+ * Find the nearest marker to a sample frame, preferring the currently
+ * selected slice's markers. When two markers from different slices are
+ * co-located, this ensures we grab the selected slice's edge.
+ *
+ * Returns null if nothing is within tolerance.
+ */
+export function hitTestMarkerPreferSelected(
+  state: SlicerState,
+  sampleFrame: number,
+  toleranceSamples: number,
+  selectedSlice: number | null
+): MarkerHit | null {
+  let best: MarkerHit | null = null;
+  let bestScore = Infinity;
+
+  for (let i = 0; i < state.slices.length; i++) {
+    const s = state.slices[i];
+
+    for (const which of ['start', 'end'] as const) {
+      const markerPos = s[which];
+      const dist = Math.abs(markerPos - sampleFrame);
+      if (dist > toleranceSamples) continue;
+
+      // Lower score = better. Selected slice's markers get priority.
+      const isSelected = i === selectedSlice;
+      const score = dist + (isSelected ? 0 : toleranceSamples * 2);
+
+      if (score < bestScore) {
+        bestScore = score;
+        best = { sliceIndex: i, which };
+      }
+    }
+  }
+
+  return best;
+}

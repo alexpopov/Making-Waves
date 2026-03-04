@@ -10,7 +10,8 @@ import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks } fr
 import { getViewport, resetViewport, onWheel, onPointerMove } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
-  removeSlice, moveMarker, hitTestMarker,
+  removeSlice, moveMarker, hitTestMarker, hitTestMarkerPreferSelected,
+  findSliceAt,
   type SlicerState, type MarkerHit,
 } from './slicer.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
@@ -88,14 +89,45 @@ async function loadFile(file: File): Promise<void> {
 
 // --- Waveform interaction (pointer events) ---
 
+const SELECT_ZONE = 0.20; // top 20% of canvas = selection zone
+
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
 
+  const rect = canvas.getBoundingClientRect();
   const vp = getViewport();
   const sample = pixelToSample(canvas, e.clientX, vp);
-  const tolerancePx = 12;
   const vpLen = vp.end - vp.start;
-  const toleranceSamples = (tolerancePx / canvas.getBoundingClientRect().width) * vpLen;
+  const yRatio = (e.clientY - rect.top) / rect.height;
+  const tolerancePx = 12;
+  const toleranceSamples = (tolerancePx / rect.width) * vpLen;
+
+  if (yRatio <= SELECT_ZONE) {
+    // --- Top 20%: selection zone ---
+    // Near an edge marker? Grab it (prefer the currently selected slice's markers).
+    const edgeHit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
+    if (edgeHit) {
+      dragging = edgeHit;
+      selectedSlice = edgeHit.sliceIndex;
+      canvas.setPointerCapture(e.pointerId);
+      redraw();
+      renderSliceList();
+      return;
+    }
+
+    // Otherwise, select the slice region we clicked inside
+    const sliceIdx = findSliceAt(slicer, sample);
+    if (sliceIdx >= 0) {
+      selectedSlice = sliceIdx;
+    } else {
+      selectedSlice = null;
+    }
+    redraw();
+    renderSliceList();
+    return;
+  }
+
+  // --- Bottom 80%: marker placement zone ---
 
   // First: try to grab an existing marker
   const hit = hitTestMarker(slicer, sample, toleranceSamples);
@@ -129,6 +161,13 @@ canvas.addEventListener('pointerdown', (e) => {
 canvas.addEventListener('pointermove', (e) => {
   // Mouse moved without drag — reset zoom anchor so next zoom targets new position
   if (dragging === null) onPointerMove();
+
+  // Update cursor based on Y position
+  if (dragging === null) {
+    const rect = canvas.getBoundingClientRect();
+    const yRatio = (e.clientY - rect.top) / rect.height;
+    canvas.style.cursor = yRatio <= SELECT_ZONE ? 'pointer' : 'crosshair';
+  }
 
   if (!dragging || !slicer) return;
   const sample = pixelToSample(canvas, e.clientX, getViewport());
