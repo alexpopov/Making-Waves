@@ -25,9 +25,15 @@
 - [ ] Zoom + horizontal scroll
 - [ ] Pinch-zoom on mobile
 - [ ] Drag slice boundaries (already works)
+- [ ] Support co-located markers (one slice's end on another's start)
 - [ ] Slice labels (editable names)
 - [ ] Save/load JSON sidecar file
-- [ ] Keyboard shortcuts (space=play, delete=remove slice)
+- [ ] Keyboard shortcuts:
+  - [ ] `a` — add mode: next click always adds, bypasses hit-test
+  - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
+  - [ ] `space` — play/stop
+  - [ ] `delete`/`backspace` — remove selected slice
+  - [ ] `escape` — cancel pending slice or exit mode
 
 ## Milestone 3 — Persistence & PWA
 - [ ] IndexedDB auto-save (hash-based WAV key)
