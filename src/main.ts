@@ -143,10 +143,17 @@ canvas.addEventListener('pointerup', () => {
 
 // Escape cancels pending slice
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && slicer && slicer.pendingStart !== null) {
-    cancelPending(slicer);
-    console.log('[making-waves] Pending slice cancelled');
+  if (e.key === 'Escape') {
+    if (slicer && slicer.pendingStart !== null) {
+      cancelPending(slicer);
+      console.log('[making-waves] Pending slice cancelled');
+    }
+    if (selectedSlice !== null) {
+      selectedSlice = null;
+      console.log('[making-waves] Selection cleared');
+    }
     redraw();
+    renderSliceList();
   }
 });
 
