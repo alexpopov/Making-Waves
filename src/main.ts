@@ -6,7 +6,8 @@
  */
 
 import { decodeAudioFile } from './audio.js';
-import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks, type Viewport } from './waveform.js';
+import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks } from './waveform.js';
+import { getViewport, resetViewport, onWheel, onPointerMove } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
   removeSlice, moveMarker, hitTestMarker,
@@ -35,9 +36,6 @@ let selectedSlice: number | null = null;
 let playheadSample: number | null = null;
 let dragging: MarkerHit | null = null;
 let isLooping = false;
-
-// Viewport: which sample range is visible. Zoom changes the span.
-let viewport: Viewport = { start: 0, end: 1 };
 
 // --- File loading ---
 btnLoad.addEventListener('click', () => fileInput.click());
@@ -74,7 +72,7 @@ async function loadFile(file: File): Promise<void> {
     });
     slicer = createSlicer(audioBuffer.length);
     selectedSlice = null;
-    viewport = { start: 0, end: audioBuffer.length };
+    resetViewport(audioBuffer.length);
     editor.classList.remove('hidden');
 
     requestAnimationFrame(() => {
@@ -93,10 +91,10 @@ async function loadFile(file: File): Promise<void> {
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
 
-  const sample = pixelToSample(canvas, e.clientX, viewport);
+  const vp = getViewport();
+  const sample = pixelToSample(canvas, e.clientX, vp);
   const tolerancePx = 12;
-  // Tolerance in samples scales with zoom — when zoomed in, markers are easier to grab
-  const vpLen = viewport.end - viewport.start;
+  const vpLen = vp.end - vp.start;
   const toleranceSamples = (tolerancePx / canvas.getBoundingClientRect().width) * vpLen;
 
   // First: try to grab an existing marker
@@ -129,8 +127,11 @@ canvas.addEventListener('pointerdown', (e) => {
 });
 
 canvas.addEventListener('pointermove', (e) => {
+  // Mouse moved without drag — reset zoom anchor so next zoom targets new position
+  if (dragging === null) onPointerMove();
+
   if (!dragging || !slicer) return;
-  const sample = pixelToSample(canvas, e.clientX, viewport);
+  const sample = pixelToSample(canvas, e.clientX, getViewport());
   moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
   redraw();
   renderSliceList();
@@ -187,17 +188,19 @@ function redraw(): void {
   const rect = canvas.getBoundingClientRect();
   const width = Math.floor(rect.width);
 
+  const vp = getViewport();
+
   // Regenerate peaks if canvas width changed or viewport changed
   if (!peaks || peaks.length !== width ||
-      peaks.vpStart !== viewport.start || peaks.vpEnd !== viewport.end) {
-    peaks = generatePeaks(audioBuffer, width, viewport);
+      peaks.vpStart !== vp.start || peaks.vpEnd !== vp.end) {
+    peaks = generatePeaks(audioBuffer, width, vp);
   }
 
   drawWaveform(canvas, {
     peaks,
     slices: slicer.slices,
     totalSamples: slicer.totalSamples,
-    viewport,
+    viewport: vp,
     playheadSample,
     selectedSlice,
     pendingStart: slicer.pendingStart,
@@ -209,67 +212,14 @@ window.addEventListener('resize', () => {
   redraw();
 });
 
-// --- Zoom & pan (scroll wheel / trackpad) ---
-// Direction locks on first event of a gesture and holds until scrolling stops.
-// Vertical = zoom, horizontal = pan. Never both at once.
-let scrollLock: 'pan' | 'zoom' | null = null;
-let scrollLockTimer: ReturnType<typeof setTimeout> | null = null;
-
+// --- Zoom & pan (delegated to viewport module) ---
 canvas.addEventListener('wheel', (e) => {
   if (!slicer) return;
   e.preventDefault();
-
-  // Lock direction on first event; hold until 150ms of silence
-  if (scrollLock === null) {
-    scrollLock = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? 'pan' : 'zoom';
+  if (onWheel(e, canvas)) {
+    peaks = null;
+    redraw();
   }
-  if (scrollLockTimer !== null) clearTimeout(scrollLockTimer);
-  scrollLockTimer = setTimeout(() => { scrollLock = null; scrollLockTimer = null; }, 150);
-
-  const totalSamples = slicer.totalSamples;
-  const vpLen = viewport.end - viewport.start;
-
-  if (scrollLock === 'pan') {
-    // --- Horizontal: pan ---
-    // deltaX > 0 = swipe left = scroll right (later in the file)
-    const panSamples = (e.deltaX / canvas.getBoundingClientRect().width) * vpLen;
-    let newStart = viewport.start + panSamples;
-    let newEnd = viewport.end + panSamples;
-
-    // Clamp
-    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
-    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
-
-    viewport = { start: Math.floor(Math.max(0, newStart)), end: Math.floor(Math.min(totalSamples, newEnd)) };
-  } else {
-    // --- Vertical: zoom toward cursor with fall-off ---
-    // Always zoom toward where the mouse is pointing.
-    // Fall-off: the more zoomed in, the smaller each step.
-    // zoomRatio is 1.0 when fully zoomed out, approaches 0 when deep in.
-    const anchor = pixelToSample(canvas, e.clientX, viewport);
-    const zoomRatio = vpLen / totalSamples;
-    // Base factor 0.15, scaled by sqrt of zoom ratio for smooth fall-off
-    const strength = 0.15 * Math.sqrt(zoomRatio);
-    const direction = e.deltaY > 0 ? 1 : -1; // down = zoom out, up = zoom in
-    const factor = 1 + direction * strength;
-    const newLen = Math.min(totalSamples, Math.max(100, vpLen * factor));
-
-    // Keep the anchor at the same proportional position in the viewport
-    const anchorRatio = (anchor - viewport.start) / vpLen;
-    let newStart = anchor - anchorRatio * newLen;
-    let newEnd = newStart + newLen;
-
-    // Clamp
-    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
-    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
-    newStart = Math.max(0, newStart);
-    newEnd = Math.min(totalSamples, newEnd);
-
-    viewport = { start: Math.floor(newStart), end: Math.floor(newEnd) };
-  }
-
-  peaks = null;
-  redraw();
 }, { passive: false });
 
 // --- Slice list ---
