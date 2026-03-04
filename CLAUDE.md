@@ -29,6 +29,16 @@
 Slices are independent [start, end] pairs that can overlap.
 Colors match start/end markers like rainbow parentheses.
 Two-click creation: first click = start, second click = end.
+Slices are kept sorted by start position (then end). Indices may
+change after creation or marker drag — track by object reference.
+
+## Viewport
+- Top 10% of canvas = selection zone (pointer cursor, heavier tint)
+- Bottom 90% = marker placement zone (crosshair cursor)
+- Waveform draws between 10%–90% of canvas height
+- Zoom: fall-off via sqrt, sticky anchor per gesture, Cinemachine dead-zone centering
+- Pan/zoom direction locks per gesture (first axis wins, 150ms reset)
+- `j`/`k` selection triggers Cinemachine-style viewport follow
 
 ## Key Files
 - `TASKS.md` — Feature checklist with milestones

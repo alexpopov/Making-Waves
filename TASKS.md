@@ -12,6 +12,15 @@
 - [x] Slice list with play/export/delete per slice
 - [x] Pointer events (unified touch + mouse)
 - [x] Debug logging
+- [x] Zoom with fall-off, sticky anchor, dead-zone centering
+- [x] Horizontal pan (trackpad swipe / shift+scroll)
+- [x] Gesture direction locking
+- [x] Top 10% selection zone with heavier tint
+- [x] `space` — play/stop
+- [x] `escape` — cancel pending / deselect
+- [x] `j`/`k` — select next/previous slice
+- [x] Cinemachine-style viewport follow on slice selection
+- [x] Slices sorted by start position
 
 ## Slice Auto-Suggestions
 - [ ] After placing slice start, show ghost markers (light grey) at suggested end points
@@ -21,20 +30,50 @@
 - [ ] Click a ghost marker to accept it as the slice end
 - [ ] Configurable sensitivity (threshold slider?)
 
+## Keyboard Shortcuts
+- [x] `space` — play/stop selected slice
+- [x] `escape` — cancel pending slice, deselect marker → deselect segment
+- [x] `j`/`k` — select next/previous slice
+- [ ] `u` — undo last action
+- [ ] `backspace`/`delete` — delete selected slice
+- [ ] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
+  - If only segment selected: `h` selects left marker, `l` selects right marker
+  - Escape once deselects marker back to segment selection
+- [ ] `a` — add mode: next click always adds, bypasses hit-test
+- [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
+- [ ] `r` — toggle loop (repeat) mode
+- [ ] `,` (comma) — rename selected segment
+
+## Cursor Feedback
+- [x] Top 10% zone: pointer cursor
+- [ ] When hovering near a draggable marker: grab cursor (not crosshair)
+- [ ] When hovering over a selectable region in top zone: pointer cursor
+
+## Pending Marker Behavior
+- [ ] When only one marker is placed (pending start), pressing play should play from that point
+- [ ] `h`/`l` should nudge the pending marker
+- [ ] Pending marker should be draggable
+- [ ] Only complete the slice (place end) if the second click is sufficiently far from the start
+  (close clicks should drag the pending marker instead)
+
+## Naming & Project
+- [ ] Project name (auto-generated, changeable)
+- [ ] Slice names derived from project name (e.g. `projectname_001`)
+- [ ] `,` to rename individual slices
+- [ ] Slice names shown in slice list
+
+## Export & Persistence
+- [ ] Save/load JSON sidecar file (`filename.slices.json`)
+- [ ] ZIP export containing: each slice WAV, sidecar JSON, original WAV (toggleable)
+- [ ] Sidecar stores: version, original filename, sample rate, slices with names
+- [ ] Resume from sidecar: reload slice boundaries and names
+- [ ] **Open question:** after resuming from sidecar, should renaming/reordering be locked
+  to avoid confusion? Or allow it with a warning?
+
 ## Milestone 2 — Usable Editor
-- [ ] Zoom + horizontal scroll
 - [ ] Pinch-zoom on mobile
-- [ ] Drag slice boundaries (already works)
 - [ ] Support co-located markers (one slice's end on another's start)
-- [ ] Slice labels (editable names)
-- [ ] Save/load JSON sidecar file
-- [ ] Keyboard shortcuts:
-  - [ ] `a` — add mode: next click always adds, bypasses hit-test
-  - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
-  - [ ] `space` — play/stop
-  - [ ] `delete`/`backspace` — remove selected slice
-  - [ ] `escape` — cancel pending slice or exit mode
-  - [ ] `j`/`k` — select next/previous slice (vim bindings)
+- [ ] Undo/redo stack
 
 ## Milestone 3 — Persistence & PWA
 - [ ] IndexedDB auto-save (hash-based WAV key)
@@ -50,8 +89,5 @@
 - [ ] Slice refinement: merge/split adjacent slices
 
 ## Milestone 5 — Polish & Export
-- [ ] ZIP export (all slices in one download)
-- [ ] Naming templates (customizable prefix, numbering)
-- [ ] Undo/redo
 - [ ] Per-slice gain/fade (non-destructive)
 - [ ] Batch normalize slices
