@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Making Waves</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <button id="btn-load" type="button">Load WAV</button>
+      <input id="file-input" type="file" accept=".wav,audio/wav" hidden />
+      <span id="file-name"></span>
+    </header>
+
+    <main id="editor" class="hidden">
+      <div id="waveform-container">
+        <canvas id="waveform"></canvas>
+      </div>
+
+      <div id="transport">
+        <button id="btn-play" type="button">Play</button>
+        <button id="btn-loop" type="button">Loop</button>
+        <button id="btn-stop" type="button">Stop</button>
+      </div>
+
+      <section id="slice-list">
+        <h2>Slices</h2>
+        <ul id="slices"></ul>
+      </section>
+    </main>
+
+    <div id="drop-zone" class="hidden">Drop WAV file here</div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --accent: #0f3460;
+  --highlight: #e94560;
+  --text: #eee;
+  --text-dim: #888;
+  --marker: #e94560;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  touch-action: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Toolbar */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--accent);
+}
+
+#toolbar button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+#toolbar button:active {
+  background: var(--highlight);
+}
+
+#file-name {
+  color: var(--text-dim);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Editor area */
+#editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#editor.hidden {
+  display: none;
+}
+
+/* Waveform */
+#waveform-container {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  position: relative;
+}
+
+#waveform {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+/* Transport controls */
+#transport {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+}
+
+#transport button {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+#transport button:active {
+  background: var(--highlight);
+}
+
+#transport button.active {
+  background: var(--highlight);
+}
+
+/* Slice list */
+#slice-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px 16px;
+}
+
+#slice-list h2 {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+#slices {
+  list-style: none;
+}
+
+#slices li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+#slices li:hover {
+  background: var(--surface);
+}
+
+#slices li.selected {
+  background: var(--accent);
+}
+
+#slices li button {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+#slices li button:active {
+  background: var(--highlight);
+}
+
+/* Drop zone overlay */
+#drop-zone {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 52, 96, 0.9);
+  font-size: 24px;
+  font-weight: bold;
+  z-index: 100;
+  pointer-events: none;
+}
+
+#drop-zone.hidden {
+  display: none;
+}
