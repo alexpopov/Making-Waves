@@ -1,92 +1,124 @@
 /**
- * Slice marker state management.
+ * Slice state management — overlapping paired regions.
  *
- * Markers are stored as sample frame positions in sorted order.
- * Regions are the spans between markers (including 0 and end).
+ * Each slice is an independent [start, end] pair. Slices can overlap
+ * like nested parentheses: (text [with {overlapping] regions}).
  */
 
+export interface Slice {
+  start: number;  // sample frame
+  end: number;    // sample frame
+}
+
 export interface SlicerState {
-  markers: number[];
+  slices: Slice[];
   totalSamples: number;
+  /** When non-null, a slice is being created — this is its start position. */
+  pendingStart: number | null;
 }
 
 export function createSlicer(totalSamples: number): SlicerState {
-  return { markers: [], totalSamples };
+  return { slices: [], totalSamples, pendingStart: null };
 }
 
-/** Add a marker and keep the array sorted. Returns the new index. */
-export function addMarker(state: SlicerState, sampleFrame: number): number {
-  // Don't add at 0 or at the very end — those are implicit boundaries
-  if (sampleFrame <= 0 || sampleFrame >= state.totalSamples) return -1;
+/** Begin a new slice at this sample frame. Returns true if started. */
+export function beginSlice(state: SlicerState, sampleFrame: number): boolean {
+  if (sampleFrame < 0 || sampleFrame >= state.totalSamples) return false;
+  state.pendingStart = sampleFrame;
+  return true;
+}
 
-  // Don't add duplicates (within 100 samples)
-  for (const m of state.markers) {
-    if (Math.abs(m - sampleFrame) < 100) return -1;
+/** Complete the pending slice at this sample frame. Returns the new slice index, or -1. */
+export function endSlice(state: SlicerState, sampleFrame: number): number {
+  if (state.pendingStart === null) return -1;
+  if (sampleFrame < 0 || sampleFrame > state.totalSamples) return -1;
+
+  let start = state.pendingStart;
+  let end = sampleFrame;
+  state.pendingStart = null;
+
+  // Swap if placed in reverse order
+  if (start > end) [start, end] = [end, start];
+
+  // Minimum slice size: 100 samples
+  if (end - start < 100) return -1;
+
+  state.slices.push({ start, end });
+  return state.slices.length - 1;
+}
+
+/** Cancel a pending slice creation. */
+export function cancelPending(state: SlicerState): void {
+  state.pendingStart = null;
+}
+
+/** Remove a slice by index. */
+export function removeSlice(state: SlicerState, index: number): void {
+  if (index >= 0 && index < state.slices.length) {
+    state.slices.splice(index, 1);
   }
-
-  state.markers.push(sampleFrame);
-  state.markers.sort((a, b) => a - b);
-  return state.markers.indexOf(sampleFrame);
 }
 
-/** Remove a marker by index. */
-export function removeMarker(state: SlicerState, index: number): void {
-  if (index >= 0 && index < state.markers.length) {
-    state.markers.splice(index, 1);
+/** Move a slice's start or end marker. */
+export function moveMarker(
+  state: SlicerState,
+  sliceIndex: number,
+  which: 'start' | 'end',
+  newFrame: number
+): void {
+  const slice = state.slices[sliceIndex];
+  if (!slice) return;
+
+  newFrame = Math.max(0, Math.min(state.totalSamples, newFrame));
+  slice[which] = newFrame;
+
+  // Ensure start < end
+  if (slice.start > slice.end) {
+    [slice.start, slice.end] = [slice.end, slice.start];
   }
 }
 
-/** Move a marker to a new position. Re-sorts after move. */
-export function moveMarker(state: SlicerState, index: number, newFrame: number): void {
-  if (index < 0 || index >= state.markers.length) return;
-  newFrame = Math.max(1, Math.min(state.totalSamples - 1, newFrame));
-  state.markers[index] = newFrame;
-  state.markers.sort((a, b) => a - b);
-}
-
-/** Get all regions as [start, end] pairs in sample frames. */
-export function getRegions(state: SlicerState): [number, number][] {
-  const boundaries = [0, ...state.markers, state.totalSamples];
-  const regions: [number, number][] = [];
-  for (let i = 0; i < boundaries.length - 1; i++) {
-    regions.push([boundaries[i], boundaries[i + 1]]);
-  }
-  return regions;
+export interface MarkerHit {
+  sliceIndex: number;
+  which: 'start' | 'end';
 }
 
 /**
- * Hit-test: find the marker closest to a given sample frame,
- * within a tolerance (in samples). Returns index or -1.
+ * Hit-test all slice markers. Returns the closest one within tolerance, or null.
  */
 export function hitTestMarker(
   state: SlicerState,
   sampleFrame: number,
   toleranceSamples: number
-): number {
-  let bestIdx = -1;
+): MarkerHit | null {
+  let best: MarkerHit | null = null;
   let bestDist = Infinity;
 
-  for (let i = 0; i < state.markers.length; i++) {
-    const dist = Math.abs(state.markers[i] - sampleFrame);
-    if (dist < bestDist && dist <= toleranceSamples) {
-      bestDist = dist;
-      bestIdx = i;
+  for (let i = 0; i < state.slices.length; i++) {
+    const s = state.slices[i];
+    const dStart = Math.abs(s.start - sampleFrame);
+    const dEnd = Math.abs(s.end - sampleFrame);
+
+    if (dStart < bestDist && dStart <= toleranceSamples) {
+      bestDist = dStart;
+      best = { sliceIndex: i, which: 'start' };
+    }
+    if (dEnd < bestDist && dEnd <= toleranceSamples) {
+      bestDist = dEnd;
+      best = { sliceIndex: i, which: 'end' };
     }
   }
 
-  return bestIdx;
+  return best;
 }
 
 /**
- * Find which region (slice) a given sample frame falls in.
- * Returns the region index.
+ * Find the topmost (last-added) slice containing this sample frame.
  */
-export function findRegionAt(state: SlicerState, sampleFrame: number): number {
-  const regions = getRegions(state);
-  for (let i = 0; i < regions.length; i++) {
-    if (sampleFrame >= regions[i][0] && sampleFrame < regions[i][1]) {
-      return i;
-    }
+export function findSliceAt(state: SlicerState, sampleFrame: number): number {
+  for (let i = state.slices.length - 1; i >= 0; i--) {
+    const s = state.slices[i];
+    if (sampleFrame >= s.start && sampleFrame <= s.end) return i;
   }
-  return regions.length - 1;
+  return -1;
 }

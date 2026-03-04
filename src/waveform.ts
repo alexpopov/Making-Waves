@@ -1,9 +1,11 @@
 /**
  * Waveform peak generation and Canvas 2D rendering.
  *
- * Produces a downsampled min/max peak array so we can draw
- * the waveform at any zoom level without iterating all samples.
+ * Draws overlapping slice regions with rainbow-paren coloring:
+ * each slice's start and end markers share a color.
  */
+
+import type { Slice } from './slicer.js';
 
 export interface Peaks {
   min: Float32Array;
@@ -23,7 +25,6 @@ export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
   const min = new Float32Array(width);
   const max = new Float32Array(width);
 
-  // Get all channel data upfront
   const channels: Float32Array[] = [];
   for (let c = 0; c < numChannels; c++) {
     channels.push(buffer.getChannelData(c));
@@ -37,7 +38,6 @@ export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
     let hi = -1.0;
 
     for (let i = start; i < end; i++) {
-      // Average across channels for mono mix
       let sample = 0;
       for (let c = 0; c < numChannels; c++) {
         sample += channels[c][i];
@@ -57,45 +57,63 @@ export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
 
 export interface DrawOptions {
   peaks: Peaks;
-  markers: number[];          // marker positions in sample frames
+  slices: Slice[];
   totalSamples: number;
   playheadSample: number | null;
-  selectedSlice: number | null; // index into regions (between markers)
+  selectedSlice: number | null;
+  /** Sample position of a pending slice start (first click placed, waiting for second) */
+  pendingStart: number | null;
 }
 
 /**
- * Draw the waveform, slice markers, and playhead onto a canvas.
+ * Rainbow palette — cycles like rainbow parentheses.
+ * A slice's start and end markers share the same color.
  */
+const SLICE_COLORS = [
+  '#e94560', // red
+  '#f5a623', // orange
+  '#f7dc6f', // yellow
+  '#2ecc71', // green
+  '#4cc9f0', // cyan
+  '#7b68ee', // purple
+  '#e056a0', // pink
+  '#00bcd4', // teal
+];
+
+export function sliceColor(index: number): string {
+  return SLICE_COLORS[index % SLICE_COLORS.length];
+}
+
 export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void {
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
   const w = rect.width;
   const h = rect.height;
 
-  // Size canvas buffer to match CSS size × device pixel ratio
   canvas.width = w * dpr;
   canvas.height = h * dpr;
 
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  const { peaks, markers, totalSamples, playheadSample, selectedSlice } = opts;
+  const { peaks, slices, totalSamples, playheadSample, selectedSlice, pendingStart } = opts;
   const midY = h / 2;
+  const triSize = 10;
 
   // Background
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, w, h);
 
-  // Highlight selected slice region
-  if (selectedSlice !== null) {
-    const regions = getRegions(markers, totalSamples);
-    if (selectedSlice >= 0 && selectedSlice < regions.length) {
-      const [rStart, rEnd] = regions[selectedSlice];
-      const x1 = (rStart / totalSamples) * w;
-      const x2 = (rEnd / totalSamples) * w;
-      ctx.fillStyle = 'rgba(15, 52, 96, 0.5)';
-      ctx.fillRect(x1, 0, x2 - x1, h);
-    }
+  // Draw colored tint bands for each slice (overlapping slices stack additively)
+  for (let i = 0; i < slices.length; i++) {
+    const s = slices[i];
+    const x1 = (s.start / totalSamples) * w;
+    const x2 = (s.end / totalSamples) * w;
+    const color = sliceColor(i);
+    ctx.fillStyle = i === selectedSlice
+      ? hexToRgba(color, 0.22)
+      : hexToRgba(color, 0.08);
+    ctx.fillRect(x1, 0, x2 - x1, h);
   }
 
   // Draw waveform
@@ -116,22 +134,68 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.lineTo(w, midY);
   ctx.stroke();
 
-  // Slice markers
-  ctx.strokeStyle = '#e94560';
-  ctx.lineWidth = 1.5;
-  for (const marker of markers) {
-    const x = (marker / totalSamples) * w;
+  // Draw slice markers — each slice's start and end share a color
+  for (let i = 0; i < slices.length; i++) {
+    const s = slices[i];
+    const color = sliceColor(i);
+    const isSelected = i === selectedSlice;
+
+    // Start marker
+    const xStart = (s.start / totalSamples) * w;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isSelected ? 2 : 1.5;
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
+    ctx.moveTo(xStart, 0);
+    ctx.lineTo(xStart, h);
     ctx.stroke();
 
-    // Small triangle handle at top
-    ctx.fillStyle = '#e94560';
+    // Start triangle: points RIGHT (inward toward slice content) ▷
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(x - 5, 0);
-    ctx.lineTo(x + 5, 0);
-    ctx.lineTo(x, 8);
+    ctx.moveTo(xStart, 0);
+    ctx.lineTo(xStart, triSize * 2);
+    ctx.lineTo(xStart + triSize, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // End marker
+    const xEnd = (s.end / totalSamples) * w;
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(xEnd, 0);
+    ctx.lineTo(xEnd, h);
+    ctx.stroke();
+
+    // End triangle: points LEFT (inward toward slice content) ◁
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(xEnd, 0);
+    ctx.lineTo(xEnd, triSize * 2);
+    ctx.lineTo(xEnd - triSize, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Pending start marker (first click placed, waiting for second)
+  if (pendingStart !== null) {
+    const nextColor = sliceColor(slices.length);
+    const xPending = (pendingStart / totalSamples) * w;
+
+    ctx.strokeStyle = nextColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xPending, 0);
+    ctx.lineTo(xPending, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Inward triangle
+    ctx.fillStyle = nextColor;
+    ctx.beginPath();
+    ctx.moveTo(xPending, 0);
+    ctx.lineTo(xPending, triSize * 2);
+    ctx.lineTo(xPending + triSize, 0);
     ctx.closePath();
     ctx.fill();
   }
@@ -148,19 +212,13 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   }
 }
 
-/** Convert markers into [start, end] regions */
-function getRegions(markers: number[], totalSamples: number): [number, number][] {
-  const sorted = [0, ...markers, totalSamples];
-  const regions: [number, number][] = [];
-  for (let i = 0; i < sorted.length - 1; i++) {
-    regions.push([sorted[i], sorted[i + 1]]);
-  }
-  return regions;
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
-/**
- * Convert a pixel X position on the canvas to a sample frame index.
- */
 export function pixelToSample(canvas: HTMLCanvasElement, x: number, totalSamples: number): number {
   const rect = canvas.getBoundingClientRect();
   const ratio = (x - rect.left) / rect.width;
