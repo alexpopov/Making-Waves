@@ -89,7 +89,7 @@ async function loadFile(file: File): Promise<void> {
 
 // --- Waveform interaction (pointer events) ---
 
-const SELECT_ZONE = 0.20; // top 20% of canvas = selection zone
+const SELECT_ZONE = 0.10; // top 10% of canvas = selection zone
 
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;

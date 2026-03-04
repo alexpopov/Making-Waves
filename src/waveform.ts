@@ -110,8 +110,15 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.scale(dpr, dpr);
 
   const { peaks, slices, viewport, playheadSample, selectedSlice, pendingStart } = opts;
-  const midY = h / 2;
   const triSize = 10;
+
+  // Waveform lives in the middle 80% (10%–90%), leaving
+  // top 10% for selection zone and bottom 10% as padding.
+  const MARGIN = 0.10;
+  const waveTop = h * MARGIN;
+  const waveBottom = h * (1 - MARGIN);
+  const waveHeight = waveBottom - waveTop;
+  const waveMidY = waveTop + waveHeight / 2;
 
   // Map a sample frame to an X pixel position using the viewport
   const vpLen = viewport.end - viewport.start;
@@ -121,8 +128,8 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, w, h);
 
-  // Selection zone boundary (top 20%)
-  const selectLineY = h * 0.20;
+  // Selection zone boundary (top 10%)
+  const selectLineY = waveTop;
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
@@ -153,13 +160,14 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     }
   }
 
-  // Draw waveform (peaks are already generated for this viewport)
+  // Draw waveform — maps [-1, 1] into [waveBottom, waveTop]
   ctx.fillStyle = '#4cc9f0';
+  const halfWave = waveHeight / 2;
   for (let px = 0; px < peaks.length && px < w; px++) {
     const minVal = peaks.min[px];
     const maxVal = peaks.max[px];
-    const y1 = midY - maxVal * midY;
-    const y2 = midY - minVal * midY;
+    const y1 = waveMidY - maxVal * halfWave;
+    const y2 = waveMidY - minVal * halfWave;
     ctx.fillRect(px, y1, 1, Math.max(1, y2 - y1));
   }
 
@@ -167,8 +175,8 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.strokeStyle = 'rgba(255,255,255,0.1)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, midY);
-  ctx.lineTo(w, midY);
+  ctx.moveTo(0, waveMidY);
+  ctx.lineTo(w, waveMidY);
   ctx.stroke();
 
   // Draw slice markers — each slice's start and end share a color
