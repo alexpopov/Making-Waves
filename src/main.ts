@@ -38,7 +38,6 @@ let isLooping = false;
 
 // Viewport: which sample range is visible. Zoom changes the span.
 let viewport: Viewport = { start: 0, end: 1 };
-const ZOOM_FACTOR = 1.15; // each scroll tick zooms by 15%
 
 // --- File loading ---
 btnLoad.addEventListener('click', () => fileInput.click());
@@ -243,20 +242,16 @@ canvas.addEventListener('wheel', (e) => {
 
     viewport = { start: Math.floor(Math.max(0, newStart)), end: Math.floor(Math.min(totalSamples, newEnd)) };
   } else {
-    // --- Vertical: zoom ---
-    // When a slice is selected: zoom centers on that slice's midpoint.
-    // When nothing is selected: zoom centers on the cursor position.
-    let anchor: number;
-    if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
-      const s = slicer.slices[selectedSlice];
-      anchor = (s.start + s.end) / 2;
-    } else {
-      anchor = pixelToSample(canvas, e.clientX, viewport);
-    }
-
-    // deltaY > 0 = scroll down = zoom out, deltaY < 0 = scroll up = zoom in
-    const direction = e.deltaY > 0 ? 1 : -1;
-    const factor = direction > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+    // --- Vertical: zoom toward cursor with fall-off ---
+    // Always zoom toward where the mouse is pointing.
+    // Fall-off: the more zoomed in, the smaller each step.
+    // zoomRatio is 1.0 when fully zoomed out, approaches 0 when deep in.
+    const anchor = pixelToSample(canvas, e.clientX, viewport);
+    const zoomRatio = vpLen / totalSamples;
+    // Base factor 0.15, scaled by sqrt of zoom ratio for smooth fall-off
+    const strength = 0.15 * Math.sqrt(zoomRatio);
+    const direction = e.deltaY > 0 ? 1 : -1; // down = zoom out, up = zoom in
+    const factor = 1 + direction * strength;
     const newLen = Math.min(totalSamples, Math.max(100, vpLen * factor));
 
     // Keep the anchor at the same proportional position in the viewport
