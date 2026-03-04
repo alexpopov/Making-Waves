@@ -7,20 +7,32 @@
 
 import type { Slice } from './slicer.js';
 
+/**
+ * Viewport defines which sample range is visible on screen.
+ * At zoom=1, this is [0, totalSamples]. Zooming in narrows the range.
+ */
+export interface Viewport {
+  start: number;  // first visible sample
+  end: number;    // last visible sample
+}
+
 export interface Peaks {
   min: Float32Array;
   max: Float32Array;
   length: number;
+  /** The viewport these peaks were generated for (cache key) */
+  vpStart: number;
+  vpEnd: number;
 }
 
 /**
- * Generate min/max peaks for a given pixel width.
- * Mixes down to mono by averaging all channels.
+ * Generate min/max peaks for a given pixel width over a viewport range.
+ * Only processes samples within the viewport — zoomed-in views stay fast.
  */
-export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
+export function generatePeaks(buffer: AudioBuffer, width: number, viewport: Viewport): Peaks {
   const numChannels = buffer.numberOfChannels;
-  const totalSamples = buffer.length;
-  const samplesPerPixel = totalSamples / width;
+  const vpLen = viewport.end - viewport.start;
+  const samplesPerPixel = vpLen / width;
 
   const min = new Float32Array(width);
   const max = new Float32Array(width);
@@ -31,8 +43,8 @@ export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
   }
 
   for (let px = 0; px < width; px++) {
-    const start = Math.floor(px * samplesPerPixel);
-    const end = Math.min(Math.floor((px + 1) * samplesPerPixel), totalSamples);
+    const start = Math.floor(viewport.start + px * samplesPerPixel);
+    const end = Math.min(Math.floor(viewport.start + (px + 1) * samplesPerPixel), buffer.length);
 
     let lo = 1.0;
     let hi = -1.0;
@@ -52,13 +64,14 @@ export function generatePeaks(buffer: AudioBuffer, width: number): Peaks {
     max[px] = hi;
   }
 
-  return { min, max, length: width };
+  return { min, max, length: width, vpStart: viewport.start, vpEnd: viewport.end };
 }
 
 export interface DrawOptions {
   peaks: Peaks;
   slices: Slice[];
   totalSamples: number;
+  viewport: Viewport;
   playheadSample: number | null;
   selectedSlice: number | null;
   /** Sample position of a pending slice start (first click placed, waiting for second) */
@@ -96,9 +109,13 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  const { peaks, slices, totalSamples, playheadSample, selectedSlice, pendingStart } = opts;
+  const { peaks, slices, viewport, playheadSample, selectedSlice, pendingStart } = opts;
   const midY = h / 2;
   const triSize = 10;
+
+  // Map a sample frame to an X pixel position using the viewport
+  const vpLen = viewport.end - viewport.start;
+  const sampleToX = (s: number) => ((s - viewport.start) / vpLen) * w;
 
   // Background
   ctx.fillStyle = '#1a1a2e';
@@ -107,8 +124,10 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   // Draw colored tint bands for each slice (overlapping slices stack additively)
   for (let i = 0; i < slices.length; i++) {
     const s = slices[i];
-    const x1 = (s.start / totalSamples) * w;
-    const x2 = (s.end / totalSamples) * w;
+    const x1 = sampleToX(s.start);
+    const x2 = sampleToX(s.end);
+    // Skip slices entirely outside the viewport
+    if (x2 < 0 || x1 > w) continue;
     const color = sliceColor(i);
     ctx.fillStyle = i === selectedSlice
       ? hexToRgba(color, 0.22)
@@ -116,7 +135,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.fillRect(x1, 0, x2 - x1, h);
   }
 
-  // Draw waveform
+  // Draw waveform (peaks are already generated for this viewport)
   ctx.fillStyle = '#4cc9f0';
   for (let px = 0; px < peaks.length && px < w; px++) {
     const minVal = peaks.min[px];
@@ -140,8 +159,14 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     const color = sliceColor(i);
     const isSelected = i === selectedSlice;
 
+    const xStart = sampleToX(s.start);
+    const xEnd = sampleToX(s.end);
+
+    // Skip if both markers are off-screen
+    if (xStart > w + triSize && xEnd > w + triSize) continue;
+    if (xStart < -triSize && xEnd < -triSize) continue;
+
     // Start marker
-    const xStart = (s.start / totalSamples) * w;
     ctx.strokeStyle = color;
     ctx.lineWidth = isSelected ? 2 : 1.5;
     ctx.beginPath();
@@ -159,8 +184,6 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.fill();
 
     // End marker
-    const xEnd = (s.end / totalSamples) * w;
-    ctx.strokeStyle = color;
     ctx.beginPath();
     ctx.moveTo(xEnd, 0);
     ctx.lineTo(xEnd, h);
@@ -179,7 +202,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   // Pending start marker (first click placed, waiting for second)
   if (pendingStart !== null) {
     const nextColor = sliceColor(slices.length);
-    const xPending = (pendingStart / totalSamples) * w;
+    const xPending = sampleToX(pendingStart);
 
     ctx.strokeStyle = nextColor;
     ctx.lineWidth = 2;
@@ -202,7 +225,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
 
   // Playhead
   if (playheadSample !== null) {
-    const px = (playheadSample / totalSamples) * w;
+    const px = sampleToX(playheadSample);
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -219,8 +242,13 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-export function pixelToSample(canvas: HTMLCanvasElement, x: number, totalSamples: number): number {
+/**
+ * Convert a pixel X position on the canvas to a sample frame,
+ * accounting for the current viewport (zoom/scroll state).
+ */
+export function pixelToSample(canvas: HTMLCanvasElement, x: number, viewport: Viewport): number {
   const rect = canvas.getBoundingClientRect();
   const ratio = (x - rect.left) / rect.width;
-  return Math.round(Math.max(0, Math.min(1, ratio)) * totalSamples);
+  const sample = viewport.start + ratio * (viewport.end - viewport.start);
+  return Math.round(Math.max(0, sample));
 }

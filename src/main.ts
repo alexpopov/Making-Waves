@@ -6,7 +6,7 @@
  */
 
 import { decodeAudioFile } from './audio.js';
-import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks } from './waveform.js';
+import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks, type Viewport } from './waveform.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
   removeSlice, moveMarker, hitTestMarker,
@@ -35,6 +35,10 @@ let selectedSlice: number | null = null;
 let playheadSample: number | null = null;
 let dragging: MarkerHit | null = null;
 let isLooping = false;
+
+// Viewport: which sample range is visible. Zoom changes the span.
+let viewport: Viewport = { start: 0, end: 1 };
+const ZOOM_FACTOR = 1.15; // each scroll tick zooms by 15%
 
 // --- File loading ---
 btnLoad.addEventListener('click', () => fileInput.click());
@@ -71,6 +75,7 @@ async function loadFile(file: File): Promise<void> {
     });
     slicer = createSlicer(audioBuffer.length);
     selectedSlice = null;
+    viewport = { start: 0, end: audioBuffer.length };
     editor.classList.remove('hidden');
 
     requestAnimationFrame(() => {
@@ -89,9 +94,11 @@ async function loadFile(file: File): Promise<void> {
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
 
-  const sample = pixelToSample(canvas, e.clientX, slicer.totalSamples);
+  const sample = pixelToSample(canvas, e.clientX, viewport);
   const tolerancePx = 12;
-  const toleranceSamples = (tolerancePx / canvas.getBoundingClientRect().width) * slicer.totalSamples;
+  // Tolerance in samples scales with zoom — when zoomed in, markers are easier to grab
+  const vpLen = viewport.end - viewport.start;
+  const toleranceSamples = (tolerancePx / canvas.getBoundingClientRect().width) * vpLen;
 
   // First: try to grab an existing marker
   const hit = hitTestMarker(slicer, sample, toleranceSamples);
@@ -124,7 +131,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
 canvas.addEventListener('pointermove', (e) => {
   if (!dragging || !slicer) return;
-  const sample = pixelToSample(canvas, e.clientX, slicer.totalSamples);
+  const sample = pixelToSample(canvas, e.clientX, viewport);
   moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
   redraw();
   renderSliceList();
@@ -181,14 +188,17 @@ function redraw(): void {
   const rect = canvas.getBoundingClientRect();
   const width = Math.floor(rect.width);
 
-  if (!peaks || peaks.length !== width) {
-    peaks = generatePeaks(audioBuffer, width);
+  // Regenerate peaks if canvas width changed or viewport changed
+  if (!peaks || peaks.length !== width ||
+      peaks.vpStart !== viewport.start || peaks.vpEnd !== viewport.end) {
+    peaks = generatePeaks(audioBuffer, width, viewport);
   }
 
   drawWaveform(canvas, {
     peaks,
     slices: slicer.slices,
     totalSamples: slicer.totalSamples,
+    viewport,
     playheadSample,
     selectedSlice,
     pendingStart: slicer.pendingStart,
@@ -199,6 +209,73 @@ window.addEventListener('resize', () => {
   peaks = null;
   redraw();
 });
+
+// --- Zoom & pan (scroll wheel / trackpad) ---
+// Direction locks on first event of a gesture and holds until scrolling stops.
+// Vertical = zoom, horizontal = pan. Never both at once.
+let scrollLock: 'pan' | 'zoom' | null = null;
+let scrollLockTimer: ReturnType<typeof setTimeout> | null = null;
+
+canvas.addEventListener('wheel', (e) => {
+  if (!slicer) return;
+  e.preventDefault();
+
+  // Lock direction on first event; hold until 150ms of silence
+  if (scrollLock === null) {
+    scrollLock = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? 'pan' : 'zoom';
+  }
+  if (scrollLockTimer !== null) clearTimeout(scrollLockTimer);
+  scrollLockTimer = setTimeout(() => { scrollLock = null; scrollLockTimer = null; }, 150);
+
+  const totalSamples = slicer.totalSamples;
+  const vpLen = viewport.end - viewport.start;
+
+  if (scrollLock === 'pan') {
+    // --- Horizontal: pan ---
+    // deltaX > 0 = swipe left = scroll right (later in the file)
+    const panSamples = (e.deltaX / canvas.getBoundingClientRect().width) * vpLen;
+    let newStart = viewport.start + panSamples;
+    let newEnd = viewport.end + panSamples;
+
+    // Clamp
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+
+    viewport = { start: Math.floor(Math.max(0, newStart)), end: Math.floor(Math.min(totalSamples, newEnd)) };
+  } else {
+    // --- Vertical: zoom ---
+    // When a slice is selected: zoom centers on that slice's midpoint.
+    // When nothing is selected: zoom centers on the cursor position.
+    let anchor: number;
+    if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
+      const s = slicer.slices[selectedSlice];
+      anchor = (s.start + s.end) / 2;
+    } else {
+      anchor = pixelToSample(canvas, e.clientX, viewport);
+    }
+
+    // deltaY > 0 = scroll down = zoom out, deltaY < 0 = scroll up = zoom in
+    const direction = e.deltaY > 0 ? 1 : -1;
+    const factor = direction > 0 ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
+    const newLen = Math.min(totalSamples, Math.max(100, vpLen * factor));
+
+    // Keep the anchor at the same proportional position in the viewport
+    const anchorRatio = (anchor - viewport.start) / vpLen;
+    let newStart = anchor - anchorRatio * newLen;
+    let newEnd = newStart + newLen;
+
+    // Clamp
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+    newStart = Math.max(0, newStart);
+    newEnd = Math.min(totalSamples, newEnd);
+
+    viewport = { start: Math.floor(newStart), end: Math.floor(newEnd) };
+  }
+
+  peaks = null;
+  redraw();
+}, { passive: false });
 
 // --- Slice list ---
 function renderSliceList(): void {
