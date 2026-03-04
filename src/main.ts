@@ -180,7 +180,7 @@ canvas.addEventListener('pointerup', () => {
   dragging = null;
 });
 
-// Escape cancels pending slice
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (slicer && slicer.pendingStart !== null) {
@@ -193,6 +193,19 @@ document.addEventListener('keydown', (e) => {
     }
     redraw();
     renderSliceList();
+  }
+
+  if (e.key === ' ') {
+    e.preventDefault(); // don't scroll the page
+    const ps = getPlaybackState();
+    if (ps.isPlaying) {
+      stop();
+      playheadSample = null;
+      redraw();
+    } else if (audioBuffer && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+      const s = slicer.slices[selectedSlice];
+      playRegion(audioBuffer, s.start, s.end, isLooping);
+    }
   }
 });
 
