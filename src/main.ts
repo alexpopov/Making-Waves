@@ -7,7 +7,7 @@
 
 import { decodeAudioFile } from './audio.js';
 import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks } from './waveform.js';
-import { getViewport, resetViewport, onWheel, onPointerMove } from './viewport.js';
+import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
   removeSlice, moveMarker, hitTestMarker, hitTestMarkerPreferSelected,
@@ -207,6 +207,19 @@ document.addEventListener('keydown', (e) => {
       playRegion(audioBuffer, s.start, s.end, isLooping);
     }
   }
+
+  // j/k — select next/previous slice
+  if ((e.key === 'j' || e.key === 'k') && slicer && slicer.slices.length > 0) {
+    if (selectedSlice === null) {
+      selectedSlice = e.key === 'j' ? 0 : slicer.slices.length - 1;
+    } else {
+      const delta = e.key === 'j' ? 1 : -1;
+      selectedSlice = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
+    }
+    ensureSliceVisible(selectedSlice);
+    redraw();
+    renderSliceList();
+  }
 });
 
 // --- Transport controls ---
@@ -239,6 +252,14 @@ setCallbacks(
   (sample) => { playheadSample = sample; redraw(); },
   () => { playheadSample = null; redraw(); }
 );
+
+// --- Viewport follow ---
+function ensureSliceVisible(sliceIdx: number): void {
+  if (!slicer || sliceIdx < 0 || sliceIdx >= slicer.slices.length) return;
+  const s = slicer.slices[sliceIdx];
+  ensureVisible(s.start, s.end);
+  peaks = null; // viewport may have changed
+}
 
 // --- Drawing ---
 function redraw(): void {

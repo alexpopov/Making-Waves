@@ -139,6 +139,55 @@ function applyZoom(e: WheelEvent, canvas: HTMLCanvasElement): void {
   };
 }
 
+/**
+ * Ensure a sample range [start, end] is visible in the viewport.
+ * Uses Cinemachine-style dead zone: if the range is fully inside the
+ * middle 80% of the viewport, do nothing. If any part pokes into the
+ * outer 10% margins, pan just enough to bring it back to the edge
+ * of the dead zone. If the range is wider than the viewport, zoom
+ * out to fit it with some padding.
+ */
+export function ensureVisible(start: number, end: number): void {
+  const vpLen = viewport.end - viewport.start;
+  const margin = vpLen * EDGE_ZONE;
+  const safeStart = viewport.start + margin;
+  const safeEnd = viewport.end - margin;
+  const sliceLen = end - start;
+
+  // If the slice is wider than the safe zone, zoom out to fit
+  if (sliceLen > safeEnd - safeStart) {
+    const padding = sliceLen * 0.15;
+    let newStart = start - padding;
+    let newEnd = end + padding;
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+    viewport = {
+      start: Math.floor(Math.max(0, newStart)),
+      end: Math.floor(Math.min(totalSamples, newEnd)),
+    };
+    return;
+  }
+
+  // Pan if any part is outside the safe zone
+  let shift = 0;
+  if (start < safeStart) {
+    shift = start - safeStart; // negative = pan left
+  } else if (end > safeEnd) {
+    shift = end - safeEnd;     // positive = pan right
+  }
+
+  if (shift !== 0) {
+    let newStart = viewport.start + shift;
+    let newEnd = viewport.end + shift;
+    if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+    if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+    viewport = {
+      start: Math.floor(Math.max(0, newStart)),
+      end: Math.floor(Math.min(totalSamples, newEnd)),
+    };
+  }
+}
+
 function clearGesture(): void {
   scrollLock = null;
   zoomAnchor = null;
