@@ -34,6 +34,7 @@
   - [ ] `space` — play/stop
   - [ ] `delete`/`backspace` — remove selected slice
   - [ ] `escape` — cancel pending slice or exit mode
+  - [ ] `j`/`k` — select next/previous slice (vim bindings)
 
 ## Milestone 3 — Persistence & PWA
 - [ ] IndexedDB auto-save (hash-based WAV key)
