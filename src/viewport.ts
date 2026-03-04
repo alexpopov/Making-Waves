@@ -26,7 +26,7 @@ const SCROLL_LOCK_MS = 150;
 const ZOOM_ANCHOR_MS = 1500;
 const EDGE_ZONE = 0.10;       // 10% dead-zone buffer on each side
 const EDGE_PUSH = 0.08;       // max centering nudge per tick
-const BASE_ZOOM_STRENGTH = 0.15;
+const BASE_ZOOM_STRENGTH = 0.25;
 const MIN_VIEWPORT_SAMPLES = 100;
 
 // --- Public API ---
