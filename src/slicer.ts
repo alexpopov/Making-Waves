@@ -43,8 +43,10 @@ export function endSlice(state: SlicerState, sampleFrame: number): number {
   // Minimum slice size: 100 samples
   if (end - start < 100) return -1;
 
-  state.slices.push({ start, end });
-  return state.slices.length - 1;
+  const slice = { start, end };
+  state.slices.push(slice);
+  sortSlices(state);
+  return state.slices.indexOf(slice);
 }
 
 /** Cancel a pending slice creation. */
@@ -59,15 +61,15 @@ export function removeSlice(state: SlicerState, index: number): void {
   }
 }
 
-/** Move a slice's start or end marker. */
+/** Move a slice's start or end marker. Returns the slice's new index after re-sort. */
 export function moveMarker(
   state: SlicerState,
   sliceIndex: number,
   which: 'start' | 'end',
   newFrame: number
-): void {
+): number {
   const slice = state.slices[sliceIndex];
-  if (!slice) return;
+  if (!slice) return sliceIndex;
 
   newFrame = Math.max(0, Math.min(state.totalSamples, newFrame));
   slice[which] = newFrame;
@@ -76,6 +78,9 @@ export function moveMarker(
   if (slice.start > slice.end) {
     [slice.start, slice.end] = [slice.end, slice.start];
   }
+
+  sortSlices(state);
+  return state.slices.indexOf(slice);
 }
 
 export interface MarkerHit {
@@ -159,4 +164,9 @@ export function hitTestMarkerPreferSelected(
   }
 
   return best;
+}
+
+/** Sort slices by start position, then by end position. */
+function sortSlices(state: SlicerState): void {
+  state.slices.sort((a, b) => a.start - b.start || a.end - b.end);
 }

@@ -171,7 +171,9 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (!dragging || !slicer) return;
   const sample = pixelToSample(canvas, e.clientX, getViewport());
-  moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
+  const newIdx = moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
+  dragging = { ...dragging, sliceIndex: newIdx };
+  selectedSlice = newIdx;
   redraw();
   renderSliceList();
 });
