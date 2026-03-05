@@ -164,14 +164,11 @@ canvas.addEventListener('pointerdown', (e) => {
   const toleranceSamples = (tolerancePx / rect.width) * vpLen;
 
   if (yRatio <= SELECT_ZONE) {
-    // --- Top 20%: selection zone ---
-    // Near an edge marker? Grab it (prefer the currently selected slice's markers).
+    // --- Top 10%: selection only (no dragging) ---
+    // Near a marker? Select its slice.
     const edgeHit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
     if (edgeHit) {
-      saveSnapshot(); // before drag
-      dragging = edgeHit;
       selectedSlice = edgeHit.sliceIndex;
-      canvas.setPointerCapture(e.pointerId);
       redraw();
       renderSliceList();
       return;
