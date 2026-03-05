@@ -6,7 +6,7 @@
  */
 
 import { decodeAudioFile } from './audio.js';
-import { generatePeaks, drawWaveform, pixelToSample, sliceColor, type Peaks } from './waveform.js';
+import { generatePeaks, drawWaveform, pixelToSample, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
@@ -29,6 +29,7 @@ const btnLoop = document.getElementById('btn-loop') as HTMLButtonElement;
 const btnStop = document.getElementById('btn-stop') as HTMLButtonElement;
 const slicesUl = document.getElementById('slices') as HTMLUListElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
+const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -115,6 +116,37 @@ async function loadFile(file: File): Promise<void> {
     fileNameEl.textContent = `Error: ${err}`;
   }
 }
+
+// --- Settings popover ---
+const settingsPopover = document.getElementById('settings-popover') as HTMLElement;
+const themeSelect = document.getElementById('theme-select') as HTMLSelectElement;
+
+btnSettings.addEventListener('click', (e) => {
+  e.stopPropagation();
+  settingsPopover.classList.toggle('hidden');
+});
+
+// Close popover when clicking outside
+document.addEventListener('pointerdown', (e) => {
+  if (!settingsPopover.classList.contains('hidden') &&
+      !settingsPopover.contains(e.target as Node) &&
+      e.target !== btnSettings) {
+    settingsPopover.classList.add('hidden');
+  }
+});
+
+themeSelect.addEventListener('change', () => {
+  const theme = themeSelect.value;
+  if (theme === 'midnight') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  invalidateThemeCache();
+  peaks = null;
+  redraw();
+  renderSliceList();
+});
 
 // --- Waveform interaction (pointer events) ---
 

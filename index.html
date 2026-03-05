@@ -12,6 +12,8 @@
       <button id="btn-load" type="button">Load WAV</button>
       <input id="file-input" type="file" accept=".wav,audio/wav" hidden />
       <span id="file-name"></span>
+      <span style="flex:1"></span>
+      <button id="btn-settings" type="button">Settings</button>
     </header>
 
     <main id="editor" class="hidden">
@@ -32,6 +34,16 @@
     </main>
 
     <div id="drop-zone" class="hidden">Drop WAV file here</div>
+
+    <div id="settings-popover" class="hidden">
+      <label>
+        Theme
+        <select id="theme-select">
+          <option value="midnight">Midnight</option>
+          <option value="cobalt">Cobalt</option>
+        </select>
+      </label>
+    </div>
   </div>
 
   <script type="module" src="/src/main.ts"></script>

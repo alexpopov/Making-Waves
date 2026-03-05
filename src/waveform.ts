@@ -79,10 +79,9 @@ export interface DrawOptions {
 }
 
 /**
- * Rainbow palette — cycles like rainbow parentheses.
- * A slice's start and end markers share the same color.
+ * Default rainbow palette — used when no CSS --slice-N vars are set.
  */
-const SLICE_COLORS = [
+const DEFAULT_SLICE_COLORS = [
   '#e94560', // red
   '#f5a623', // orange
   '#f7dc6f', // yellow
@@ -93,8 +92,31 @@ const SLICE_COLORS = [
   '#00bcd4', // teal
 ];
 
+/** Cached slice colors from CSS — invalidated on theme change. */
+let cachedSliceColors: string[] | null = null;
+
+function getSliceColors(): string[] {
+  if (cachedSliceColors) return cachedSliceColors;
+
+  const style = getComputedStyle(document.documentElement);
+  const colors: string[] = [];
+  for (let i = 0; ; i++) {
+    const val = style.getPropertyValue(`--slice-${i}`).trim();
+    if (!val) break;
+    colors.push(val);
+  }
+  cachedSliceColors = colors.length > 0 ? colors : DEFAULT_SLICE_COLORS;
+  return cachedSliceColors;
+}
+
+/** Call when the theme changes to pick up new slice colors. */
+export function invalidateThemeCache(): void {
+  cachedSliceColors = null;
+}
+
 export function sliceColor(index: number): string {
-  return SLICE_COLORS[index % SLICE_COLORS.length];
+  const colors = getSliceColors();
+  return colors[index % colors.length];
 }
 
 export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void {
