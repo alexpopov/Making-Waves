@@ -133,7 +133,8 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.scale(dpr, dpr);
 
   const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart } = opts;
-  const triSize = 10;
+  const triW = 10;
+  const triH = 15;
 
   // Read theme colors from CSS custom properties
   const style = getComputedStyle(canvas);
@@ -239,8 +240,8 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     const xEnd = sampleToX(s.end);
 
     // Skip if both markers are off-screen
-    if (xStart > w + triSize && xEnd > w + triSize) continue;
-    if (xStart < -triSize && xEnd < -triSize) continue;
+    if (xStart > w + triW && xEnd > w + triW) continue;
+    if (xStart < -triW && xEnd < -triW) continue;
 
     const startActive = isSelected && selectedMarker === 'start';
     const endActive = isSelected && selectedMarker === 'end';
@@ -257,9 +258,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Start triangle: points RIGHT (inward toward slice content) ▷
     ctx.fillStyle = startActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xStart, 0);
-    ctx.lineTo(xStart, triSize * 2);
-    ctx.lineTo(xStart + triSize, 0);
+    ctx.moveTo(xStart - 1, 0);
+    ctx.lineTo(xStart - 1, triH);
+    ctx.lineTo(xStart - 1 + triW, 0);
     ctx.closePath();
     ctx.fill();
 
@@ -274,9 +275,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // End triangle: points LEFT (inward toward slice content) ◁
     ctx.fillStyle = endActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xEnd, 0);
-    ctx.lineTo(xEnd, triSize * 2);
-    ctx.lineTo(xEnd - triSize, 0);
+    ctx.moveTo(xEnd + 1, 0);
+    ctx.lineTo(xEnd + 1, triH);
+    ctx.lineTo(xEnd + 1 - triW, 0);
     ctx.closePath();
     ctx.fill();
   }
@@ -298,9 +299,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Inward triangle
     ctx.fillStyle = nextColor;
     ctx.beginPath();
-    ctx.moveTo(xPending, 0);
-    ctx.lineTo(xPending, triSize * 2);
-    ctx.lineTo(xPending + triSize, 0);
+    ctx.moveTo(xPending - 1, 0);
+    ctx.lineTo(xPending - 1, triH);
+    ctx.lineTo(xPending - 1 + triW, 0);
     ctx.closePath();
     ctx.fill();
   }
