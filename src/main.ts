@@ -356,6 +356,10 @@ document.addEventListener('keydown', (e) => {
       const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
       selectedSlice = newIdx;
     }
+    // Ensure the selected marker is visible
+    const markerSample = slicer.slices[selectedSlice][selectedMarker];
+    ensureVisible(markerSample, markerSample);
+    peaks = null;
     redraw();
     renderSliceList();
   }
