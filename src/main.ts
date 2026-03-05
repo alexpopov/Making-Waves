@@ -304,6 +304,21 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
+  // Backspace/Delete — delete selected slice
+  if ((e.key === 'Backspace' || e.key === 'Delete') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+    e.preventDefault();
+    saveSnapshot();
+    removeSlice(slicer, selectedSlice);
+    selectedMarker = null;
+    if (slicer.slices.length === 0) {
+      selectedSlice = null;
+    } else {
+      selectedSlice = Math.min(selectedSlice, slicer.slices.length - 1);
+    }
+    redraw();
+    renderSliceList();
+  }
+
   // u/U or Cmd-Z/Ctrl-Z — undo/redo
   const mod = e.metaKey || e.ctrlKey;
   if (slicer && ((e.key === 'u' && !e.shiftKey && !mod) || (e.key === 'z' && mod && !e.shiftKey))) {

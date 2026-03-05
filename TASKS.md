@@ -35,7 +35,7 @@
 - [x] `escape` — cancel pending slice, deselect marker → deselect segment
 - [x] `j`/`k` — select next/previous slice
 - [x] `u` — undo last action
-- [ ] `backspace`/`delete` — delete selected slice
+- [x] `backspace`/`delete` — delete selected slice
 - [x] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
   - If only segment selected: `h` selects left marker, `l` selects right marker
   - Escape once deselects marker back to segment selection
@@ -43,6 +43,7 @@
 - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
 - [ ] `r` — toggle loop (repeat) mode
 - [ ] `,` (comma) — rename selected segment
+- [ ] `z` - zoom in one segment or slice or back to previous 
 
 ## Cursor Feedback
 - [x] Top 10% zone: pointer cursor
