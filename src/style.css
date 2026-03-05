@@ -4,6 +4,7 @@
   padding: 0;
 }
 
+/* --- Theme: Midnight (default) --- */
 :root {
   --bg: #1a1a2e;
   --surface: #16213e;
@@ -12,6 +13,13 @@
   --text: #eee;
   --text-dim: #888;
   --marker: #e94560;
+
+  /* Waveform canvas colors */
+  --wave-bg: #1a1a2e;
+  --wave-fill: #4cc9f0;
+  --wave-center-line: rgba(255,255,255,0.1);
+  --wave-select-line: rgba(255,255,255,0.12);
+  --wave-playhead: #ffffff;
 }
 
 html, body {

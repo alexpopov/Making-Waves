@@ -112,6 +112,14 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const { peaks, slices, viewport, playheadSample, selectedSlice, pendingStart } = opts;
   const triSize = 10;
 
+  // Read theme colors from CSS custom properties
+  const style = getComputedStyle(canvas);
+  const themeBg = style.getPropertyValue('--wave-bg').trim() || '#1a1a2e';
+  const themeFill = style.getPropertyValue('--wave-fill').trim() || '#4cc9f0';
+  const themeCenterLine = style.getPropertyValue('--wave-center-line').trim() || 'rgba(255,255,255,0.1)';
+  const themeSelectLine = style.getPropertyValue('--wave-select-line').trim() || 'rgba(255,255,255,0.12)';
+  const themePlayhead = style.getPropertyValue('--wave-playhead').trim() || '#ffffff';
+
   // Waveform lives in the middle 80% (10%–90%), leaving
   // top 10% for selection zone and bottom 10% as padding.
   const MARGIN = 0.10;
@@ -125,12 +133,12 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const sampleToX = (s: number) => ((s - viewport.start) / vpLen) * w;
 
   // Background
-  ctx.fillStyle = '#1a1a2e';
+  ctx.fillStyle = themeBg;
   ctx.fillRect(0, 0, w, h);
 
   // Selection zone boundary (top 10%)
   const selectLineY = waveTop;
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.strokeStyle = themeSelectLine;
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
@@ -161,7 +169,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   }
 
   // Draw waveform — maps [-1, 1] into [waveBottom, waveTop]
-  ctx.fillStyle = '#4cc9f0';
+  ctx.fillStyle = themeFill;
   const halfWave = waveHeight / 2;
   for (let px = 0; px < peaks.length && px < w; px++) {
     const minVal = peaks.min[px];
@@ -172,7 +180,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   }
 
   // Center line
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.strokeStyle = themeCenterLine;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, waveMidY);
@@ -252,7 +260,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   // Playhead
   if (playheadSample !== null) {
     const px = sampleToX(playheadSample);
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = themePlayhead;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(px, 0);
