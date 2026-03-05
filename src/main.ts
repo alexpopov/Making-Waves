@@ -36,8 +36,11 @@ let audioBuffer: AudioBuffer | null = null;
 let peaks: Peaks | null = null;
 let slicer: SlicerState | null = null;
 let selectedSlice: number | null = null;
+let selectedMarker: 'start' | 'end' | null = null;
 let playheadSample: number | null = null;
 let dragging: MarkerHit | null = null;
+let pendingDrag: { hit: MarkerHit; startX: number } | null = null;
+const DRAG_THRESHOLD_PX = 5;
 let isLooping = false;
 
 // --- Undo/redo helpers ---
@@ -169,6 +172,7 @@ canvas.addEventListener('pointerdown', (e) => {
     const edgeHit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
     if (edgeHit) {
       selectedSlice = edgeHit.sliceIndex;
+      selectedMarker = null;
       redraw();
       renderSliceList();
       return;
@@ -181,6 +185,7 @@ canvas.addEventListener('pointerdown', (e) => {
     } else {
       selectedSlice = null;
     }
+    selectedMarker = null;
     redraw();
     renderSliceList();
     return;
@@ -188,12 +193,12 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // --- Bottom 80%: marker placement zone ---
 
-  // First: try to grab an existing marker
+  // First: try to grab an existing marker (defer drag until threshold)
   const hit = hitTestMarker(slicer, sample, toleranceSamples);
   if (hit) {
-    saveSnapshot(); // before drag
-    dragging = hit;
+    pendingDrag = { hit, startX: e.clientX };
     selectedSlice = hit.sliceIndex;
+    selectedMarker = hit.which;
     canvas.setPointerCapture(e.pointerId);
     redraw();
     renderSliceList();
@@ -222,13 +227,25 @@ canvas.addEventListener('pointerdown', (e) => {
 
 canvas.addEventListener('pointermove', (e) => {
   // Mouse moved without drag — reset zoom anchor so next zoom targets new position
-  if (dragging === null) onPointerMove();
+  if (dragging === null && pendingDrag === null) onPointerMove();
 
   // Update cursor based on Y position
-  if (dragging === null) {
+  if (dragging === null && pendingDrag === null) {
     const rect = canvas.getBoundingClientRect();
     const yRatio = (e.clientY - rect.top) / rect.height;
     canvas.style.cursor = yRatio <= SELECT_ZONE ? 'pointer' : 'crosshair';
+  }
+
+  // Promote pending drag to real drag once threshold is crossed
+  if (pendingDrag && !dragging) {
+    const dx = Math.abs(e.clientX - pendingDrag.startX);
+    if (dx >= DRAG_THRESHOLD_PX) {
+      saveSnapshot(); // before drag
+      dragging = pendingDrag.hit;
+      pendingDrag = null;
+    } else {
+      return; // still within threshold, don't move anything
+    }
   }
 
   if (!dragging || !slicer) return;
@@ -241,6 +258,9 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 canvas.addEventListener('pointerup', () => {
+  // If we had a pending drag that never crossed threshold, it's a click — select the marker
+  // (already selected in pointerdown, so just clean up)
+  pendingDrag = null;
   dragging = null;
 });
 
@@ -251,8 +271,10 @@ document.addEventListener('keydown', (e) => {
       saveSnapshot(); // before cancelling pending
       cancelPending(slicer);
       console.log('[making-waves] Pending slice cancelled');
-    }
-    if (selectedSlice !== null) {
+    } else if (selectedMarker !== null) {
+      selectedMarker = null;
+      console.log('[making-waves] Marker deselected');
+    } else if (selectedSlice !== null) {
       selectedSlice = null;
       console.log('[making-waves] Selection cleared');
     }
@@ -300,7 +322,27 @@ document.addEventListener('keydown', (e) => {
       const delta = e.key === 'j' ? 1 : -1;
       selectedSlice = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
     }
+    selectedMarker = null;
     ensureSliceVisible(selectedSlice);
+    redraw();
+    renderSliceList();
+  }
+
+  // h/l — select or nudge marker
+  if ((e.key === 'h' || e.key === 'l') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+    if (selectedMarker === null) {
+      // No marker selected: h picks start, l picks end
+      selectedMarker = e.key === 'h' ? 'start' : 'end';
+    } else {
+      // Marker selected: nudge it. Amount scales with zoom level.
+      const vp = getViewport();
+      const vpLen = vp.end - vp.start;
+      const nudge = Math.max(1, Math.round(vpLen * 0.005));
+      const delta = e.key === 'h' ? -nudge : nudge;
+      saveSnapshot();
+      const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
+      selectedSlice = newIdx;
+    }
     redraw();
     renderSliceList();
   }
@@ -367,6 +409,7 @@ function redraw(): void {
     viewport: vp,
     playheadSample,
     selectedSlice,
+    selectedMarker,
     pendingStart: slicer.pendingStart,
   });
 }

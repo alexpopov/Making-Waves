@@ -36,7 +36,7 @@
 - [x] `j`/`k` — select next/previous slice
 - [x] `u` — undo last action
 - [ ] `backspace`/`delete` — delete selected slice
-- [ ] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
+- [x] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
   - If only segment selected: `h` selects left marker, `l` selects right marker
   - Escape once deselects marker back to segment selection
 - [ ] `a` — add mode: next click always adds, bypasses hit-test

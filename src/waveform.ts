@@ -74,6 +74,7 @@ export interface DrawOptions {
   viewport: Viewport;
   playheadSample: number | null;
   selectedSlice: number | null;
+  selectedMarker: 'start' | 'end' | null;
   /** Sample position of a pending slice start (first click placed, waiting for second) */
   pendingStart: number | null;
 }
@@ -131,7 +132,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  const { peaks, slices, viewport, playheadSample, selectedSlice, pendingStart } = opts;
+  const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart } = opts;
   const triSize = 10;
 
   // Read theme colors from CSS custom properties
@@ -222,16 +223,20 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     if (xStart > w + triSize && xEnd > w + triSize) continue;
     if (xStart < -triSize && xEnd < -triSize) continue;
 
+    const startActive = isSelected && selectedMarker === 'start';
+    const endActive = isSelected && selectedMarker === 'end';
+    const hasActiveMarker = isSelected && selectedMarker !== null;
+
     // Start marker
-    ctx.strokeStyle = color;
-    ctx.lineWidth = isSelected ? 2 : 1.5;
+    ctx.strokeStyle = startActive ? themePlayhead : color;
+    ctx.lineWidth = startActive ? 3 : (hasActiveMarker ? 1 : (isSelected ? 2 : 1.5));
     ctx.beginPath();
     ctx.moveTo(xStart, 0);
     ctx.lineTo(xStart, h);
     ctx.stroke();
 
     // Start triangle: points RIGHT (inward toward slice content) ▷
-    ctx.fillStyle = color;
+    ctx.fillStyle = startActive ? themePlayhead : color;
     ctx.beginPath();
     ctx.moveTo(xStart, 0);
     ctx.lineTo(xStart, triSize * 2);
@@ -240,13 +245,15 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.fill();
 
     // End marker
+    ctx.strokeStyle = endActive ? themePlayhead : color;
+    ctx.lineWidth = endActive ? 3 : (hasActiveMarker ? 1 : (isSelected ? 2 : 1.5));
     ctx.beginPath();
     ctx.moveTo(xEnd, 0);
     ctx.lineTo(xEnd, h);
     ctx.stroke();
 
     // End triangle: points LEFT (inward toward slice content) ◁
-    ctx.fillStyle = color;
+    ctx.fillStyle = endActive ? themePlayhead : color;
     ctx.beginPath();
     ctx.moveTo(xEnd, 0);
     ctx.lineTo(xEnd, triSize * 2);
