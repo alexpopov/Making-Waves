@@ -188,6 +188,30 @@ export function ensureVisible(start: number, end: number): void {
   }
 }
 
+/**
+ * Zoom to fit a sample range with padding. Returns the previous viewport
+ * so the caller can toggle back.
+ */
+export function zoomToRange(start: number, end: number, padding = 0.1): Viewport {
+  const prev = { ...viewport };
+  const len = end - start;
+  const pad = len * padding;
+  let newStart = start - pad;
+  let newEnd = end + pad;
+  if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+  if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+  viewport = {
+    start: Math.floor(Math.max(0, newStart)),
+    end: Math.floor(Math.min(totalSamples, newEnd)),
+  };
+  return prev;
+}
+
+/** Restore a previously saved viewport. */
+export function setViewport(vp: Viewport): void {
+  viewport = { ...vp };
+}
+
 function clearGesture(): void {
   scrollLock = null;
   zoomAnchor = null;

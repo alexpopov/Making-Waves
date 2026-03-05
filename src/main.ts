@@ -7,7 +7,7 @@
 
 import { decodeAudioFile } from './audio.js';
 import { generatePeaks, drawWaveform, pixelToSample, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
-import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
+import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible, zoomToRange, setViewport, type Viewport } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,
   removeSlice, moveMarker, hitTestMarker, hitTestMarkerPreferSelected,
@@ -42,6 +42,8 @@ let dragging: MarkerHit | null = null;
 let pendingDrag: { hit: MarkerHit; startX: number } | null = null;
 const DRAG_THRESHOLD_PX = 5;
 let isLooping = false;
+let zoomPrevViewport: Viewport | null = null;
+let zoomLevel: 'out' | 'none' | 'segment' | 'marker' = 'out';
 
 // --- Undo/redo helpers ---
 function saveSnapshot(): void {
@@ -154,6 +156,7 @@ themeSelect.addEventListener('change', () => {
 // --- Waveform interaction (pointer events) ---
 
 const SELECT_ZONE = 0.10; // top 10% of canvas = selection zone
+const MIN_MARKER_ZOOM = 500; // minimum sample range when zooming on a marker
 
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
@@ -349,6 +352,8 @@ document.addEventListener('keydown', (e) => {
       selectedSlice = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
     }
     selectedMarker = null;
+    zoomLevel = 'out';
+    zoomPrevViewport = null;
     ensureSliceVisible(selectedSlice);
     redraw();
     renderSliceList();
@@ -377,6 +382,56 @@ document.addEventListener('keydown', (e) => {
     peaks = null;
     redraw();
     renderSliceList();
+  }
+
+  // z — toggle zoom based on selection state
+  if (e.key === 'z' && !mod && slicer) {
+    // Determine what zoom target matches current selection
+    let targetLevel: 'none' | 'segment' | 'marker' = 'none';
+    if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
+      targetLevel = 'marker';
+    } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
+      targetLevel = 'segment';
+    }
+
+    // If we're zoomed in to the right target, zoom back out.
+    // Otherwise, zoom in to the current target (even if already zoomed to something else).
+    const shouldZoomOut = zoomLevel !== 'out' && zoomLevel === targetLevel;
+
+    if (shouldZoomOut) {
+      // Already zoomed in to this target — toggle back
+      if (zoomPrevViewport) {
+        setViewport(zoomPrevViewport);
+        zoomPrevViewport = null;
+      }
+      zoomLevel = 'out';
+    } else {
+      // Save current viewport
+      zoomPrevViewport = { ...getViewport() };
+
+      if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
+        // Marker selected — zoom tight on the marker
+        const s = slicer.slices[selectedSlice];
+        const markerPos = s[selectedMarker];
+        const markerRange = Math.max(MIN_MARKER_ZOOM, (s.end - s.start) * 0.08);
+        zoomToRange(markerPos - markerRange, markerPos + markerRange, 0.1);
+        zoomLevel = 'marker';
+      } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
+        // Segment selected — zoom to fill with the segment
+        const s = slicer.slices[selectedSlice];
+        zoomToRange(s.start, s.end, 0.1);
+        zoomLevel = 'segment';
+      } else {
+        // Nothing selected — zoom into the center of the viewport
+        const vp = getViewport();
+        const center = (vp.start + vp.end) / 2;
+        const range = (vp.end - vp.start) * 0.15;
+        zoomToRange(center - range, center + range, 0.1);
+        zoomLevel = 'none';
+      }
+    }
+    peaks = null;
+    redraw();
   }
 });
 
