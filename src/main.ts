@@ -229,11 +229,20 @@ canvas.addEventListener('pointermove', (e) => {
   // Mouse moved without drag — reset zoom anchor so next zoom targets new position
   if (dragging === null && pendingDrag === null) onPointerMove();
 
-  // Update cursor based on Y position
-  if (dragging === null && pendingDrag === null) {
+  // Update cursor based on position
+  if (dragging === null && pendingDrag === null && slicer) {
     const rect = canvas.getBoundingClientRect();
     const yRatio = (e.clientY - rect.top) / rect.height;
-    canvas.style.cursor = yRatio <= SELECT_ZONE ? 'pointer' : 'crosshair';
+    if (yRatio <= SELECT_ZONE) {
+      canvas.style.cursor = 'pointer';
+    } else {
+      const vp = getViewport();
+      const vpLen = vp.end - vp.start;
+      const toleranceSamples = (12 / rect.width) * vpLen;
+      const sample = pixelToSample(canvas, e.clientX, vp);
+      const hit = hitTestMarker(slicer, sample, toleranceSamples);
+      canvas.style.cursor = hit ? 'grab' : 'crosshair';
+    }
   }
 
   // Promote pending drag to real drag once threshold is crossed
