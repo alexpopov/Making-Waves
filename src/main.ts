@@ -16,6 +16,7 @@ import {
 } from './slicer.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
 import { encodeWav, downloadBlob } from './wav-writer.js';
+import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 
 // --- DOM elements ---
 const btnLoad = document.getElementById('btn-load') as HTMLButtonElement;
@@ -37,6 +38,33 @@ let selectedSlice: number | null = null;
 let playheadSample: number | null = null;
 let dragging: MarkerHit | null = null;
 let isLooping = false;
+
+// --- Undo/redo helpers ---
+function saveSnapshot(): void {
+  if (!slicer) return;
+  pushUndo(cloneSnapshot({
+    slices: slicer.slices,
+    pendingStart: slicer.pendingStart,
+    selectedSlice,
+  }));
+}
+
+function currentSnapshot(): Snapshot {
+  return cloneSnapshot({
+    slices: slicer?.slices ?? [],
+    pendingStart: slicer?.pendingStart ?? null,
+    selectedSlice,
+  });
+}
+
+function restoreSnapshot(snap: Snapshot): void {
+  if (!slicer) return;
+  slicer.slices = snap.slices;
+  slicer.pendingStart = snap.pendingStart;
+  selectedSlice = snap.selectedSlice;
+  redraw();
+  renderSliceList();
+}
 
 // --- File loading ---
 btnLoad.addEventListener('click', () => fileInput.click());
@@ -73,6 +101,7 @@ async function loadFile(file: File): Promise<void> {
     });
     slicer = createSlicer(audioBuffer.length);
     selectedSlice = null;
+    clearHistory();
     resetViewport(audioBuffer.length);
     editor.classList.remove('hidden');
 
@@ -107,6 +136,7 @@ canvas.addEventListener('pointerdown', (e) => {
     // Near an edge marker? Grab it (prefer the currently selected slice's markers).
     const edgeHit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
     if (edgeHit) {
+      saveSnapshot(); // before drag
       dragging = edgeHit;
       selectedSlice = edgeHit.sliceIndex;
       canvas.setPointerCapture(e.pointerId);
@@ -132,6 +162,7 @@ canvas.addEventListener('pointerdown', (e) => {
   // First: try to grab an existing marker
   const hit = hitTestMarker(slicer, sample, toleranceSamples);
   if (hit) {
+    saveSnapshot(); // before drag
     dragging = hit;
     selectedSlice = hit.sliceIndex;
     canvas.setPointerCapture(e.pointerId);
@@ -142,6 +173,7 @@ canvas.addEventListener('pointerdown', (e) => {
 
   // Second: if we have a pending start, complete the slice
   if (slicer.pendingStart !== null) {
+    saveSnapshot(); // before completing slice
     const idx = endSlice(slicer, sample);
     if (idx >= 0) {
       selectedSlice = idx;
@@ -153,6 +185,7 @@ canvas.addEventListener('pointerdown', (e) => {
   }
 
   // Third: begin a new slice
+  saveSnapshot(); // before placing start marker
   beginSlice(slicer, sample);
   console.log('[making-waves] Slice start placed — click again to set end');
   redraw();
@@ -186,6 +219,7 @@ canvas.addEventListener('pointerup', () => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (slicer && slicer.pendingStart !== null) {
+      saveSnapshot(); // before cancelling pending
       cancelPending(slicer);
       console.log('[making-waves] Pending slice cancelled');
     }
@@ -207,6 +241,22 @@ document.addEventListener('keydown', (e) => {
     } else if (audioBuffer && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
       const s = slicer.slices[selectedSlice];
       playRegion(audioBuffer, s.start, s.end, isLooping);
+    }
+  }
+
+  // u/U — undo/redo
+  if (e.key === 'u' && !e.shiftKey && slicer) {
+    const snap = undo(currentSnapshot());
+    if (snap) {
+      restoreSnapshot(snap);
+      console.log('[making-waves] Undo');
+    }
+  }
+  if (e.key === 'U' && slicer) {
+    const snap = redo(currentSnapshot());
+    if (snap) {
+      restoreSnapshot(snap);
+      console.log('[making-waves] Redo');
     }
   }
 
@@ -364,6 +414,7 @@ function renderSliceList(): void {
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!slicer) return;
+      saveSnapshot(); // before delete
       removeSlice(slicer, i);
       if (selectedSlice !== null && selectedSlice >= slicer.slices.length) {
         selectedSlice = slicer.slices.length > 0 ? slicer.slices.length - 1 : null;

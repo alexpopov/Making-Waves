@@ -34,7 +34,7 @@
 - [x] `space` — play/stop selected slice
 - [x] `escape` — cancel pending slice, deselect marker → deselect segment
 - [x] `j`/`k` — select next/previous slice
-- [ ] `u` — undo last action
+- [x] `u` — undo last action
 - [ ] `backspace`/`delete` — delete selected slice
 - [ ] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
   - If only segment selected: `h` selects left marker, `l` selects right marker
