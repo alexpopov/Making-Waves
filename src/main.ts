@@ -244,15 +244,18 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // u/U — undo/redo
-  if (e.key === 'u' && !e.shiftKey && slicer) {
+  // u/U or Cmd-Z/Ctrl-Z — undo/redo
+  const mod = e.metaKey || e.ctrlKey;
+  if (slicer && ((e.key === 'u' && !e.shiftKey && !mod) || (e.key === 'z' && mod && !e.shiftKey))) {
+    e.preventDefault();
     const snap = undo(currentSnapshot());
     if (snap) {
       restoreSnapshot(snap);
       console.log('[making-waves] Undo');
     }
   }
-  if (e.key === 'U' && slicer) {
+  if (slicer && ((e.key === 'U' && !mod) || (e.key === 'z' && mod && e.shiftKey))) {
+    e.preventDefault();
     const snap = redo(currentSnapshot());
     if (snap) {
       restoreSnapshot(snap);
