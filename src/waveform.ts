@@ -159,14 +159,29 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   ctx.fillStyle = themeBg;
   ctx.fillRect(0, 0, w, h);
 
-  // Selection zone boundary (top 10%)
+  // Selection zone boundary (top 10%) — skip over the selected slice's panel
   const selectLineY = waveTop;
   ctx.strokeStyle = themeSelectLine;
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
+
+  let selX1 = -1, selX2 = -1;
+  if (selectedSlice !== null && selectedSlice >= 0 && selectedSlice < slices.length) {
+    const ss = slices[selectedSlice];
+    selX1 = sampleToX(ss.start);
+    selX2 = sampleToX(ss.end);
+  }
+
   ctx.beginPath();
-  ctx.moveTo(0, selectLineY);
-  ctx.lineTo(w, selectLineY);
+  if (selX1 >= 0) {
+    ctx.moveTo(0, selectLineY);
+    ctx.lineTo(Math.max(0, selX1), selectLineY);
+    ctx.moveTo(Math.min(w, selX2), selectLineY);
+    ctx.lineTo(w, selectLineY);
+  } else {
+    ctx.moveTo(0, selectLineY);
+    ctx.lineTo(w, selectLineY);
+  }
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -184,10 +199,14 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
       : hexToRgba(color, 0.08);
     ctx.fillRect(x1, 0, x2 - x1, h);
 
-    // Selected slice gets a heavier tint in the top selection zone
+    // Selected slice: solid "panel" in the grab zone with underglow
     if (isSelected) {
-      ctx.fillStyle = hexToRgba(color, 0.35);
+      // Semi-transparent panel over background
+      ctx.fillStyle = themeBg;
       ctx.fillRect(x1, 0, x2 - x1, selectLineY);
+      ctx.fillStyle = hexToRgba(color, 0.45);
+      ctx.fillRect(x1, 0, x2 - x1, selectLineY);
+
     }
   }
 
