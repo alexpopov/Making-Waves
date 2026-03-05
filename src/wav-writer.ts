@@ -13,15 +13,13 @@ export interface WavOptions {
   bitDepth: 16 | 24;
 }
 
-/**
- * Encode a region of an AudioBuffer to a WAV Blob.
- */
-export function encodeWav(
+/** Encode a region of an AudioBuffer to a WAV Uint8Array. */
+export function encodeWavToUint8Array(
   buffer: AudioBuffer,
   startSample: number,
   endSample: number,
   bitDepth: 16 | 24 = 16
-): Blob {
+): Uint8Array {
   const numChannels = buffer.numberOfChannels;
   const sampleRate = buffer.sampleRate;
   const length = endSample - startSample;
@@ -33,7 +31,6 @@ export function encodeWav(
   const arrayBuffer = new ArrayBuffer(totalSize);
   const view = new DataView(arrayBuffer);
 
-  // Collect channel data
   const channels: Float32Array[] = [];
   for (let c = 0; c < numChannels; c++) {
     channels.push(buffer.getChannelData(c));
@@ -41,17 +38,17 @@ export function encodeWav(
 
   // RIFF header
   writeString(view, 0, 'RIFF');
-  view.setUint32(4, totalSize - 8, true);       // file size - 8
+  view.setUint32(4, totalSize - 8, true);
   writeString(view, 8, 'WAVE');
 
   // fmt chunk
   writeString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true);                  // chunk size (PCM = 16)
-  view.setUint16(20, 1, true);                   // audio format (1 = PCM)
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
   view.setUint16(22, numChannels, true);
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true); // byte rate
-  view.setUint16(32, numChannels * bytesPerSample, true);              // block align
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+  view.setUint16(32, numChannels * bytesPerSample, true);
   view.setUint16(34, bitDepth, true);
 
   // data chunk
@@ -69,7 +66,6 @@ export function encodeWav(
         view.setInt16(offset, val < 0 ? val * 0x8000 : val * 0x7FFF, true);
         offset += 2;
       } else {
-        // 24-bit: scale to [-8388608, 8388607]
         const val = Math.max(-1, Math.min(1, sample));
         const intVal = val < 0 ? val * 0x800000 : val * 0x7FFFFF;
         const rounded = Math.round(intVal);
@@ -81,7 +77,18 @@ export function encodeWav(
     }
   }
 
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
+  return new Uint8Array(arrayBuffer);
+}
+
+/** Encode a region of an AudioBuffer to a WAV Blob. */
+export function encodeWav(
+  buffer: AudioBuffer,
+  startSample: number,
+  endSample: number,
+  bitDepth: 16 | 24 = 16
+): Blob {
+  const bytes = encodeWavToUint8Array(buffer, startSample, endSample, bitDepth);
+  return new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' });
 }
 
 function writeString(view: DataView, offset: number, str: string): void {

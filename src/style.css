@@ -123,6 +123,7 @@ html, body {
 /* Transport controls */
 #transport {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 8px 16px;
   background: var(--surface);
@@ -155,10 +156,30 @@ html, body {
   padding: 8px 16px;
 }
 
+#slice-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
 #slice-list h2 {
   font-size: 14px;
   color: var(--text-dim);
-  margin-bottom: 6px;
+}
+
+#btn-save-json {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#btn-save-json:active {
+  background: var(--highlight);
 }
 
 #slices {

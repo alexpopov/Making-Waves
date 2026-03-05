@@ -15,7 +15,8 @@ import {
   type SlicerState, type MarkerHit,
 } from './slicer.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
-import { encodeWav, downloadBlob } from './wav-writer.js';
+import { encodeWav, downloadBlob, encodeWavToUint8Array } from './wav-writer.js';
+import { createZip } from './zip-writer.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 
 // --- DOM elements ---
@@ -30,9 +31,12 @@ const btnStop = document.getElementById('btn-stop') as HTMLButtonElement;
 const slicesUl = document.getElementById('slices') as HTMLUListElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement;
+const btnSaveProject = document.getElementById('btn-save-project') as HTMLButtonElement;
+const btnSaveJson = document.getElementById('btn-save-json') as HTMLButtonElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
+let originalFile: File | null = null;
 let peaks: Peaks | null = null;
 let slicer: SlicerState | null = null;
 let selectedSlice: number | null = null;
@@ -95,6 +99,7 @@ document.addEventListener('drop', (e) => {
 });
 
 async function loadFile(file: File): Promise<void> {
+  originalFile = file;
   fileNameEl.textContent = file.name;
   console.log('[making-waves] Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
   try {
@@ -458,6 +463,55 @@ btnStop.addEventListener('click', () => {
   stop();
   playheadSample = null;
   redraw();
+});
+
+// --- Save ---
+btnSaveProject.addEventListener('click', async () => {
+  if (!slicer || !audioBuffer || !originalFile) return;
+
+  const baseName = originalFile.name.replace(/\.wav$/i, '');
+
+  // Sidecar JSON
+  const sidecar = {
+    version: 1,
+    originalFile: originalFile.name,
+    sampleRate: audioBuffer.sampleRate,
+    totalSamples: audioBuffer.length,
+    slices: slicer.slices.map(s => ({ start: s.start, end: s.end })),
+  };
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(sidecar, null, 2));
+
+  // Original WAV as Uint8Array
+  const originalBytes = new Uint8Array(await originalFile.arrayBuffer());
+
+  // Slice WAVs
+  const entries: { name: string; data: Uint8Array }[] = [
+    { name: originalFile.name, data: originalBytes },
+    { name: `${baseName}.waves.json`, data: jsonBytes },
+  ];
+
+  slicer.slices.forEach((s, i) => {
+    const sliceBytes = encodeWavToUint8Array(audioBuffer!, s.start, s.end);
+    entries.push({ name: `${baseName}_${String(i + 1).padStart(3, '0')}.wav`, data: sliceBytes });
+  });
+
+  const zip = createZip(entries);
+  downloadBlob(zip, `${baseName}.zip`);
+});
+
+btnSaveJson.addEventListener('click', () => {
+  if (!slicer || !audioBuffer) return;
+  const data = {
+    version: 1,
+    originalFile: fileNameEl.textContent ?? '',
+    sampleRate: audioBuffer.sampleRate,
+    totalSamples: audioBuffer.length,
+    slices: slicer.slices.map(s => ({ start: s.start, end: s.end })),
+  };
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const baseName = (fileNameEl.textContent ?? 'slices').replace(/\.wav$/i, '');
+  downloadBlob(blob, `${baseName}.waves.json`);
 });
 
 // --- Playback callbacks ---
