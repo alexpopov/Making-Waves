@@ -21,6 +21,10 @@
 - [x] `j`/`k` — select next/previous slice
 - [x] Cinemachine-style viewport follow on slice selection
 - [x] Slices sorted by start position
+- [x] Theme support (Midnight default, Cobalt) with Settings popover
+- [x] Drag threshold on markers (click to select, drag only after 5px)
+- [x] Selected marker visual feedback (white/bright highlight)
+- [x] Selected slice panel in grab zone (semi-transparent, dotted line masked)
 
 ## Slice Auto-Suggestions
 - [ ] After placing slice start, show ghost markers (light grey) at suggested end points
@@ -39,15 +43,17 @@
 - [x] `h`/`l` — nudge selected *marker* left/right (amount scales with zoom level)
   - If only segment selected: `h` selects left marker, `l` selects right marker
   - Escape once deselects marker back to segment selection
+- [x] `z` — zoom toggle (nothing → center, segment → fill, marker → tight), z again to zoom back
+- [x] Arrow keys mirror hjkl behavior
+- [x] `Cmd-Z`/`Ctrl-Z` — undo, `Cmd-Shift-Z`/`Ctrl-Shift-Z` — redo
 - [ ] `a` — add mode: next click always adds, bypasses hit-test
 - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
 - [ ] `r` — toggle loop (repeat) mode
 - [ ] `,` (comma) — rename selected segment
-- [ ] `z` - zoom in one segment or slice or back to previous 
 
 ## Cursor Feedback
 - [x] Top 10% zone: pointer cursor
-- [ ] When hovering near a draggable marker: grab cursor (not crosshair)
+- [x] When hovering near a draggable marker: grab cursor (not crosshair)
 - [ ] When hovering over a selectable region in top zone: pointer cursor
 
 ## Pending Marker Behavior
@@ -74,7 +80,7 @@
 ## Milestone 2 — Usable Editor
 - [ ] Pinch-zoom on mobile
 - [ ] Support co-located markers (one slice's end on another's start)
-- [ ] Undo/redo stack
+- [x] Undo/redo stack
 
 ## Milestone 3 — Persistence & PWA
 - [ ] IndexedDB auto-save (hash-based WAV key)
