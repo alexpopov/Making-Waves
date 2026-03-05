@@ -314,12 +314,14 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  // j/k — select next/previous slice
-  if ((e.key === 'j' || e.key === 'k') && slicer && slicer.slices.length > 0) {
+  // j/k/ArrowDown/ArrowUp — select next/previous slice
+  if ((e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') && slicer && slicer.slices.length > 0) {
+    e.preventDefault();
+    const forward = e.key === 'j' || e.key === 'ArrowDown';
     if (selectedSlice === null) {
-      selectedSlice = e.key === 'j' ? 0 : slicer.slices.length - 1;
+      selectedSlice = forward ? 0 : slicer.slices.length - 1;
     } else {
-      const delta = e.key === 'j' ? 1 : -1;
+      const delta = forward ? 1 : -1;
       selectedSlice = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
     }
     selectedMarker = null;
@@ -328,17 +330,19 @@ document.addEventListener('keydown', (e) => {
     renderSliceList();
   }
 
-  // h/l — select or nudge marker
-  if ((e.key === 'h' || e.key === 'l') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+  // h/l/ArrowLeft/ArrowRight — select or nudge marker
+  if ((e.key === 'h' || e.key === 'l' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+    e.preventDefault();
+    const left = e.key === 'h' || e.key === 'ArrowLeft';
     if (selectedMarker === null) {
-      // No marker selected: h picks start, l picks end
-      selectedMarker = e.key === 'h' ? 'start' : 'end';
+      // No marker selected: left picks start, right picks end
+      selectedMarker = left ? 'start' : 'end';
     } else {
       // Marker selected: nudge it. Amount scales with zoom level.
       const vp = getViewport();
       const vpLen = vp.end - vp.start;
       const nudge = Math.max(1, Math.round(vpLen * 0.005));
-      const delta = e.key === 'h' ? -nudge : nudge;
+      const delta = left ? -nudge : nudge;
       saveSnapshot();
       const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
       selectedSlice = newIdx;
