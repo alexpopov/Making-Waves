@@ -6,8 +6,9 @@
  */
 
 export interface Slice {
-  start: number;  // sample frame
-  end: number;    // sample frame
+  start: number;   // sample frame
+  end: number;     // sample frame
+  name?: string;   // optional user-assigned label
 }
 
 export interface SlicerState {

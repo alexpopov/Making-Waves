@@ -17,13 +17,13 @@ interface Sidecar {
   originalFile: string;
   sampleRate: number;
   totalSamples: number;
-  slices: { start: number; end: number }[];
+  slices: { start: number; end: number; name?: string }[];
 }
 
 export interface ProjectData {
   audioBuffer: AudioBuffer;
   originalFile: File;
-  slices: { start: number; end: number }[];
+  slices: { start: number; end: number; name?: string }[];
   projectName: string;
 }
 
@@ -55,7 +55,7 @@ export async function loadProjectZip(file: File): Promise<ProjectData> {
 
 /** Build a ZIP bundle: original WAV + sidecar JSON + per-slice WAVs. */
 export async function buildProjectZip(
-  slices: { start: number; end: number }[],
+  slices: { start: number; end: number; name?: string }[],
   audioBuffer: AudioBuffer,
   originalFile: File,
   projectName: string,
@@ -88,7 +88,7 @@ export async function buildProjectZip(
 
 /** Build a standalone sidecar JSON blob (no audio). */
 export function buildSidecarJson(
-  slices: { start: number; end: number }[],
+  slices: { start: number; end: number; name?: string }[],
   audioBuffer: AudioBuffer,
   originalFileName: string,
   projectName: string,

@@ -186,7 +186,8 @@ async function loadProject(file: File): Promise<void> {
 
     for (const s of data.slices) {
       beginSlice(slicer, s.start);
-      endSlice(slicer, s.end);
+      const idx = endSlice(slicer, s.end);
+      if (idx >= 0 && s.name) slicer.slices[idx].name = s.name;
     }
 
     selectedSlice = null;

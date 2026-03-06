@@ -51,7 +51,7 @@ export function redo(current: Snapshot): Snapshot | null {
 /** Deep-clone a snapshot (slices are small objects, structuredClone is fine). */
 export function cloneSnapshot(s: Snapshot): Snapshot {
   return {
-    slices: s.slices.map(sl => ({ start: sl.start, end: sl.end })),
+    slices: s.slices.map(sl => ({ start: sl.start, end: sl.end, name: sl.name })),
     pendingStart: s.pendingStart,
     selectedSlice: s.selectedSlice,
   };
