@@ -20,9 +20,8 @@ import {
 } from './slicer.js';
 import { registerKeyboard } from './keyboard.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
-import { encodeWav, downloadBlob, encodeWavToUint8Array } from './wav-writer.js';
-import { createZip } from './zip-writer.js';
-import { readZip } from './zip-reader.js';
+import { encodeWav, downloadBlob } from './wav-writer.js';
+import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 
 // --- DOM elements ---
@@ -179,37 +178,13 @@ function closeProject(): void {
 async function loadProject(file: File): Promise<void> {
   debug('Loading project:', file.name);
   try {
-    const buffer = await file.arrayBuffer();
-    const entries = readZip(buffer);
-
-    // Find the sidecar JSON
-    const jsonEntry = entries.find(e => e.name.endsWith('.waves.json'));
-    if (!jsonEntry) throw new Error('No .waves.json sidecar found in ZIP');
-
-    const sidecar = JSON.parse(new TextDecoder().decode(jsonEntry.data)) as {
-      version: number;
-      projectName?: string;
-      originalFile: string;
-      sampleRate: number;
-      totalSamples: number;
-      slices: { start: number; end: number }[];
-    };
-
-    // Find the original WAV
-    const wavEntry = entries.find(e => e.name === sidecar.originalFile) ??
-                     entries.find(e => e.name.toLowerCase().endsWith('.wav'));
-    if (!wavEntry) throw new Error('No WAV file found in ZIP');
-
-    // Create a File object from the WAV data so decodeAudioFile can use it
-    const wavFile = new File([wavEntry.data.buffer as ArrayBuffer], sidecar.originalFile, { type: 'audio/wav' });
-    originalFile = wavFile;
-    projectName = sidecar.projectName ?? sidecar.originalFile.replace(/\.wav$/i, '');
-
-    audioBuffer = await decodeAudioFile(wavFile);
+    const data = await loadProjectZip(file);
+    originalFile = data.originalFile;
+    projectName = data.projectName;
+    audioBuffer = data.audioBuffer;
     slicer = createSlicer(audioBuffer.length);
 
-    // Restore slices
-    for (const s of sidecar.slices) {
+    for (const s of data.slices) {
       beginSlice(slicer, s.start);
       endSlice(slicer, s.end);
     }
@@ -224,7 +199,7 @@ async function loadProject(file: File): Promise<void> {
       renderSliceList();
     });
 
-    debug(`Project loaded: ${sidecar.slices.length} slices restored`);
+    debug(`Project loaded: ${data.slices.length} slices restored`);
   } catch (err) {
     console.error('[making-waves] Project load error:', err);
     alert(`Error loading project: ${err}`);
@@ -464,35 +439,8 @@ btnStop.addEventListener('click', () => {
 // --- Save ---
 async function saveProject(): Promise<void> {
   if (!slicer || !audioBuffer || !originalFile) return;
-
   const baseName = projectName || originalFile.name.replace(/\.wav$/i, '');
-
-  // Sidecar JSON
-  const sidecar = {
-    version: 1,
-    projectName: baseName,
-    originalFile: originalFile.name,
-    sampleRate: audioBuffer.sampleRate,
-    totalSamples: audioBuffer.length,
-    slices: slicer.slices.map(s => ({ start: s.start, end: s.end })),
-  };
-  const jsonBytes = new TextEncoder().encode(JSON.stringify(sidecar, null, 2));
-
-  // Original WAV as Uint8Array
-  const originalBytes = new Uint8Array(await originalFile.arrayBuffer());
-
-  // Slice WAVs
-  const entries: { name: string; data: Uint8Array }[] = [
-    { name: originalFile.name, data: originalBytes },
-    { name: `${baseName}.waves.json`, data: jsonBytes },
-  ];
-
-  slicer.slices.forEach((s, i) => {
-    const sliceBytes = encodeWavToUint8Array(audioBuffer!, s.start, s.end);
-    entries.push({ name: `${baseName}_${String(i + 1).padStart(3, '0')}.wav`, data: sliceBytes });
-  });
-
-  const zip = createZip(entries);
+  const zip = await buildProjectZip(slicer.slices, audioBuffer, originalFile, baseName);
   downloadBlob(zip, `${baseName}.zip`);
 }
 
@@ -503,15 +451,12 @@ btnSaveProject.addEventListener('click', () => {
 btnSaveJson.addEventListener('click', () => {
   if (!slicer || !audioBuffer) return;
   const baseName = projectName || 'slices';
-  const data = {
-    version: 1,
-    originalFile: originalFile?.name ?? `${baseName}.wav`,
-    sampleRate: audioBuffer.sampleRate,
-    totalSamples: audioBuffer.length,
-    slices: slicer.slices.map(s => ({ start: s.start, end: s.end })),
-  };
-  const json = JSON.stringify(data, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+  const blob = buildSidecarJson(
+    slicer.slices,
+    audioBuffer,
+    originalFile?.name ?? `${baseName}.wav`,
+    baseName,
+  );
   downloadBlob(blob, `${baseName}.waves.json`);
 });
 
