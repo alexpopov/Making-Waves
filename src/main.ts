@@ -7,7 +7,8 @@
 
 import { debug } from './debug.js';
 import { decodeAudioFile } from './audio.js';
-import { generatePeaks, drawWaveform, pixelToSample, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
+import { pixelToSample } from './coords.js';
+import { generatePeaks, drawWaveform, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible, zoomToRange, setViewport, type Viewport } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice, cancelPending,

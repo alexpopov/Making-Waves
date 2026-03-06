@@ -7,7 +7,7 @@
  * centering that only nudges the anchor when it's near the frame edge.
  */
 
-import { pixelToSample, type Viewport } from './waveform.js';
+import { pixelToSample, type Viewport } from './coords.js';
 
 export type { Viewport };
 

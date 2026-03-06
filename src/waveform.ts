@@ -6,15 +6,9 @@
  */
 
 import type { Slice } from './slicer.js';
+import { type Viewport, pixelToSample } from './coords.js';
 
-/**
- * Viewport defines which sample range is visible on screen.
- * At zoom=1, this is [0, totalSamples]. Zooming in narrows the range.
- */
-export interface Viewport {
-  start: number;  // first visible sample
-  end: number;    // last visible sample
-}
+export type { Viewport };
 
 export interface Peaks {
   min: Float32Array;
@@ -325,13 +319,4 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
-/**
- * Convert a pixel X position on the canvas to a sample frame,
- * accounting for the current viewport (zoom/scroll state).
- */
-export function pixelToSample(canvas: HTMLCanvasElement, x: number, viewport: Viewport): number {
-  const rect = canvas.getBoundingClientRect();
-  const ratio = (x - rect.left) / rect.width;
-  const sample = viewport.start + ratio * (viewport.end - viewport.start);
-  return Math.round(Math.max(0, sample));
-}
+export { pixelToSample };
