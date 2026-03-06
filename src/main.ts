@@ -5,6 +5,7 @@
  * Uses pointer events throughout for unified touch + mouse handling.
  */
 
+import { debug } from './debug.js';
 import { decodeAudioFile } from './audio.js';
 import { generatePeaks, drawWaveform, pixelToSample, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible, zoomToRange, setViewport, type Viewport } from './viewport.js';
@@ -117,10 +118,10 @@ document.addEventListener('drop', (e) => {
 async function loadFile(file: File): Promise<void> {
   originalFile = file;
   projectName = file.name.replace(/\.wav$/i, '');
-  console.log('[making-waves] Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+  debug('Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
   try {
     audioBuffer = await decodeAudioFile(file);
-    console.log('[making-waves] Decoded:', {
+    debug('Decoded:', {
       channels: audioBuffer.numberOfChannels,
       sampleRate: audioBuffer.sampleRate,
       duration: audioBuffer.duration.toFixed(2) + 's',
@@ -133,7 +134,7 @@ async function loadFile(file: File): Promise<void> {
     showEditor();
 
     requestAnimationFrame(() => {
-      console.log('[making-waves] Canvas size:', canvas.getBoundingClientRect().width, 'x', canvas.getBoundingClientRect().height);
+      debug('Canvas size:', canvas.getBoundingClientRect().width, 'x', canvas.getBoundingClientRect().height);
       redraw();
       renderSliceList();
     });
@@ -174,7 +175,7 @@ function closeProject(): void {
 
 // --- Load project from ZIP ---
 async function loadProject(file: File): Promise<void> {
-  console.log('[making-waves] Loading project:', file.name);
+  debug('Loading project:', file.name);
   try {
     const buffer = await file.arrayBuffer();
     const entries = readZip(buffer);
@@ -220,7 +221,7 @@ async function loadProject(file: File): Promise<void> {
       renderSliceList();
     });
 
-    console.log(`[making-waves] Project loaded: ${sidecar.slices.length} slices restored`);
+    debug(`Project loaded: ${sidecar.slices.length} slices restored`);
   } catch (err) {
     console.error('[making-waves] Project load error:', err);
     alert(`Error loading project: ${err}`);
@@ -365,7 +366,7 @@ canvas.addEventListener('pointerdown', (e) => {
     const idx = endSlice(slicer, sample);
     if (idx >= 0) {
       selectedSlice = idx;
-      console.log(`[making-waves] Slice #${idx + 1} created`);
+      debug(`Slice #${idx + 1} created`);
     }
     redraw();
     renderSliceList();
@@ -375,7 +376,7 @@ canvas.addEventListener('pointerdown', (e) => {
   // Third: begin a new slice
   saveSnapshot(); // before placing start marker
   beginSlice(slicer, sample);
-  console.log('[making-waves] Slice start placed — click again to set end');
+  debug('Slice start placed — click again to set end');
   redraw();
 });
 
@@ -433,13 +434,13 @@ document.addEventListener('keydown', (e) => {
     if (slicer && slicer.pendingStart !== null) {
       saveSnapshot(); // before cancelling pending
       cancelPending(slicer);
-      console.log('[making-waves] Pending slice cancelled');
+      debug('Pending slice cancelled');
     } else if (selectedMarker !== null) {
       selectedMarker = null;
-      console.log('[making-waves] Marker deselected');
+      debug('Marker deselected');
     } else if (selectedSlice !== null) {
       selectedSlice = null;
-      console.log('[making-waves] Selection cleared');
+      debug('Selection cleared');
     }
     redraw();
     renderSliceList();
@@ -480,7 +481,7 @@ document.addEventListener('keydown', (e) => {
     const snap = undo(currentSnapshot());
     if (snap) {
       restoreSnapshot(snap);
-      console.log('[making-waves] Undo');
+      debug('Undo');
     }
   }
   if (slicer && ((e.key === 'U' && !mod) || (e.key === 'z' && mod && e.shiftKey))) {
@@ -488,7 +489,7 @@ document.addEventListener('keydown', (e) => {
     const snap = redo(currentSnapshot());
     if (snap) {
       restoreSnapshot(snap);
-      console.log('[making-waves] Redo');
+      debug('Redo');
     }
   }
 
