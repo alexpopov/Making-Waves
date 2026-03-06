@@ -186,6 +186,7 @@ async function loadProject(file: File): Promise<void> {
 
     const sidecar = JSON.parse(new TextDecoder().decode(jsonEntry.data)) as {
       version: number;
+      projectName?: string;
       originalFile: string;
       sampleRate: number;
       totalSamples: number;
@@ -200,7 +201,7 @@ async function loadProject(file: File): Promise<void> {
     // Create a File object from the WAV data so decodeAudioFile can use it
     const wavFile = new File([wavEntry.data.buffer as ArrayBuffer], sidecar.originalFile, { type: 'audio/wav' });
     originalFile = wavFile;
-    projectName = sidecar.originalFile.replace(/\.wav$/i, '');
+    projectName = sidecar.projectName ?? sidecar.originalFile.replace(/\.wav$/i, '');
 
     audioBuffer = await decodeAudioFile(wavFile);
     slicer = createSlicer(audioBuffer.length);
@@ -621,6 +622,7 @@ btnSaveProject.addEventListener('click', async () => {
   // Sidecar JSON
   const sidecar = {
     version: 1,
+    projectName: baseName,
     originalFile: originalFile.name,
     sampleRate: audioBuffer.sampleRate,
     totalSamples: audioBuffer.length,
