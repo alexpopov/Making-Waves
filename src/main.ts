@@ -17,12 +17,17 @@ import {
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
 import { encodeWav, downloadBlob, encodeWavToUint8Array } from './wav-writer.js';
 import { createZip } from './zip-writer.js';
+import { readZip } from './zip-reader.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 
 // --- DOM elements ---
-const btnLoad = document.getElementById('btn-load') as HTMLButtonElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
-const fileNameEl = document.getElementById('file-name') as HTMLSpanElement;
+const projectInput = document.getElementById('project-input') as HTMLInputElement;
+const projectTitleEl = document.getElementById('project-title') as HTMLSpanElement;
+const btnClose = document.getElementById('btn-close') as HTMLButtonElement;
+const startScreen = document.getElementById('start-screen') as HTMLElement;
+const btnLoadWav = document.getElementById('btn-load-wav') as HTMLButtonElement;
+const btnLoadProject = document.getElementById('btn-load-project') as HTMLButtonElement;
 const editor = document.getElementById('editor') as HTMLElement;
 const canvas = document.getElementById('waveform') as HTMLCanvasElement;
 const btnPlay = document.getElementById('btn-play') as HTMLButtonElement;
@@ -48,6 +53,7 @@ const DRAG_THRESHOLD_PX = 5;
 let isLooping = false;
 let zoomPrevViewport: Viewport | null = null;
 let zoomLevel: 'out' | 'none' | 'segment' | 'marker' = 'out';
+let projectName = '';
 
 // --- Undo/redo helpers ---
 function saveSnapshot(): void {
@@ -77,10 +83,16 @@ function restoreSnapshot(snap: Snapshot): void {
 }
 
 // --- File loading ---
-btnLoad.addEventListener('click', () => fileInput.click());
+btnLoadWav.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => {
   const file = fileInput.files?.[0];
   if (file) loadFile(file);
+});
+
+btnLoadProject.addEventListener('click', () => projectInput.click());
+projectInput.addEventListener('change', () => {
+  const file = projectInput.files?.[0];
+  if (file) loadProject(file).catch(err => console.error('[making-waves] Unhandled project load error:', err));
 });
 
 // Drag-and-drop
@@ -95,12 +107,16 @@ document.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.add('hidden');
   const file = e.dataTransfer?.files[0];
-  if (file && file.name.toLowerCase().endsWith('.wav')) loadFile(file);
+  if (file) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.wav')) loadFile(file);
+    else if (name.endsWith('.zip')) loadProject(file);
+  }
 });
 
 async function loadFile(file: File): Promise<void> {
   originalFile = file;
-  fileNameEl.textContent = file.name;
+  projectName = file.name.replace(/\.wav$/i, '');
   console.log('[making-waves] Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
   try {
     audioBuffer = await decodeAudioFile(file);
@@ -114,7 +130,7 @@ async function loadFile(file: File): Promise<void> {
     selectedSlice = null;
     clearHistory();
     resetViewport(audioBuffer.length);
-    editor.classList.remove('hidden');
+    showEditor();
 
     requestAnimationFrame(() => {
       console.log('[making-waves] Canvas size:', canvas.getBoundingClientRect().width, 'x', canvas.getBoundingClientRect().height);
@@ -123,7 +139,91 @@ async function loadFile(file: File): Promise<void> {
     });
   } catch (err) {
     console.error('[making-waves] Load error:', err);
-    fileNameEl.textContent = `Error: ${err}`;
+    alert(`Error loading file: ${err}`);
+  }
+}
+
+/** Show editor, hide start screen, update title bar */
+function showEditor(): void {
+  startScreen.classList.add('hidden');
+  editor.classList.remove('hidden');
+  projectTitleEl.textContent = projectName;
+  projectTitleEl.classList.remove('hidden');
+  btnClose.classList.remove('hidden');
+}
+
+/** Reset to start screen */
+function closeProject(): void {
+  stop();
+  audioBuffer = null;
+  originalFile = null;
+  peaks = null;
+  slicer = null;
+  selectedSlice = null;
+  selectedMarker = null;
+  playheadSample = null;
+  projectName = '';
+  clearHistory();
+  editor.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+  projectTitleEl.classList.add('hidden');
+  projectTitleEl.textContent = '';
+  projectTitleEl.setAttribute('contenteditable', 'false');
+  btnClose.classList.add('hidden');
+}
+
+// --- Load project from ZIP ---
+async function loadProject(file: File): Promise<void> {
+  console.log('[making-waves] Loading project:', file.name);
+  try {
+    const buffer = await file.arrayBuffer();
+    const entries = readZip(buffer);
+
+    // Find the sidecar JSON
+    const jsonEntry = entries.find(e => e.name.endsWith('.waves.json'));
+    if (!jsonEntry) throw new Error('No .waves.json sidecar found in ZIP');
+
+    const sidecar = JSON.parse(new TextDecoder().decode(jsonEntry.data)) as {
+      version: number;
+      originalFile: string;
+      sampleRate: number;
+      totalSamples: number;
+      slices: { start: number; end: number }[];
+    };
+
+    // Find the original WAV
+    const wavEntry = entries.find(e => e.name === sidecar.originalFile) ??
+                     entries.find(e => e.name.toLowerCase().endsWith('.wav'));
+    if (!wavEntry) throw new Error('No WAV file found in ZIP');
+
+    // Create a File object from the WAV data so decodeAudioFile can use it
+    const wavFile = new File([wavEntry.data.buffer as ArrayBuffer], sidecar.originalFile, { type: 'audio/wav' });
+    originalFile = wavFile;
+    projectName = sidecar.originalFile.replace(/\.wav$/i, '');
+
+    audioBuffer = await decodeAudioFile(wavFile);
+    slicer = createSlicer(audioBuffer.length);
+
+    // Restore slices
+    for (const s of sidecar.slices) {
+      beginSlice(slicer, s.start);
+      endSlice(slicer, s.end);
+    }
+
+    selectedSlice = null;
+    clearHistory();
+    resetViewport(audioBuffer.length);
+    showEditor();
+
+    requestAnimationFrame(() => {
+      redraw();
+      renderSliceList();
+    });
+
+    console.log(`[making-waves] Project loaded: ${sidecar.slices.length} slices restored`);
+  } catch (err) {
+    console.error('[making-waves] Project load error:', err);
+    alert(`Error loading project: ${err}`);
   }
 }
 
@@ -143,6 +243,52 @@ document.addEventListener('pointerdown', (e) => {
       e.target !== btnSettings) {
     settingsPopover.classList.add('hidden');
   }
+});
+
+// --- Close project ---
+btnClose.addEventListener('click', () => {
+  if (!audioBuffer) return;
+  const shouldSave = confirm('Save project before closing?');
+  if (shouldSave) {
+    // Trigger save, then close
+    btnSaveProject.click();
+  }
+  closeProject();
+});
+
+// --- Editable project title ---
+projectTitleEl.addEventListener('dblclick', () => {
+  projectTitleEl.setAttribute('contenteditable', 'true');
+  projectTitleEl.focus();
+  // Select all text
+  const range = document.createRange();
+  range.selectNodeContents(projectTitleEl);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+});
+
+projectTitleEl.addEventListener('blur', () => {
+  projectTitleEl.setAttribute('contenteditable', 'false');
+  const newName = projectTitleEl.textContent?.trim();
+  if (newName) {
+    projectName = newName;
+  } else {
+    projectTitleEl.textContent = projectName;
+  }
+});
+
+projectTitleEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    projectTitleEl.blur();
+  }
+  if (e.key === 'Escape') {
+    projectTitleEl.textContent = projectName;
+    projectTitleEl.blur();
+  }
+  // Stop keyboard shortcuts from firing while editing title
+  e.stopPropagation();
 });
 
 themeSelect.addEventListener('change', () => {
@@ -469,7 +615,7 @@ btnStop.addEventListener('click', () => {
 btnSaveProject.addEventListener('click', async () => {
   if (!slicer || !audioBuffer || !originalFile) return;
 
-  const baseName = originalFile.name.replace(/\.wav$/i, '');
+  const baseName = projectName || originalFile.name.replace(/\.wav$/i, '');
 
   // Sidecar JSON
   const sidecar = {
@@ -501,16 +647,16 @@ btnSaveProject.addEventListener('click', async () => {
 
 btnSaveJson.addEventListener('click', () => {
   if (!slicer || !audioBuffer) return;
+  const baseName = projectName || 'slices';
   const data = {
     version: 1,
-    originalFile: fileNameEl.textContent ?? '',
+    originalFile: originalFile?.name ?? `${baseName}.wav`,
     sampleRate: audioBuffer.sampleRate,
     totalSamples: audioBuffer.length,
     slices: slicer.slices.map(s => ({ start: s.start, end: s.end })),
   };
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
-  const baseName = (fileNameEl.textContent ?? 'slices').replace(/\.wav$/i, '');
   downloadBlob(blob, `${baseName}.waves.json`);
 });
 
@@ -620,7 +766,7 @@ function renderSliceList(): void {
     exportBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!audioBuffer) return;
-      const baseName = fileNameEl.textContent?.replace('.wav', '') ?? 'slice';
+      const baseName = projectName || 'slice';
       const blob = encodeWav(audioBuffer, slice.start, slice.end);
       downloadBlob(blob, `${baseName}_${String(i + 1).padStart(3, '0')}.wav`);
     });

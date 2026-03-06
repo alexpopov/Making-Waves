@@ -85,12 +85,86 @@ html, body {
   background: var(--highlight);
 }
 
-#file-name {
-  color: var(--text-dim);
-  font-size: 13px;
+/* Project title in toolbar */
+#project-title {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 50vw;
+  text-align: center;
+  outline: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+#project-title[contenteditable="true"] {
+  border-bottom-color: var(--highlight);
+  cursor: text;
+  background: rgba(255,255,255,0.05);
+}
+
+#project-title.hidden {
+  display: none;
+}
+
+/* Close project button */
+#btn-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 8px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+#btn-close:hover {
+  color: var(--highlight);
+  background: rgba(255,255,255,0.08);
+}
+
+#btn-close.hidden {
+  display: none;
+}
+
+/* Start screen */
+#start-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#start-screen.hidden {
+  display: none;
+}
+
+#start-buttons {
+  display: flex;
+  gap: 24px;
+}
+
+#start-buttons button {
+  padding: 24px 48px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#start-buttons button:hover {
+  border-color: var(--highlight);
+  background: var(--accent);
 }
 
 /* Editor area */

@@ -50,6 +50,7 @@
 - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
 - [ ] `r` — toggle loop (repeat) mode
 - [ ] `,` (comma) — rename selected segment
+- [ ] `tab` (comma) — toggle selected marker?
 
 ## Cursor Feedback
 - [x] Top 10% zone: pointer cursor
@@ -63,6 +64,13 @@
 - [ ] Only complete the slice (place end) if the second click is sufficiently far from the start
   (close clicks should drag the pending marker instead)
 
+## Project UI
+- [ ] Start screen with "Load WAV" and "Load Project" buttons (replaces toolbar Load WAV button)
+- [ ] Centered editable project title in toolbar (white, contenteditable)
+- [ ] Close [×] button beside title — native confirm to save or discard
+- [ ] Load project from ZIP: minimal STORE-only zip-reader.ts, restore WAV + slices
+- [ ] Show start screen on close, hide when project active
+
 ## Naming & Project
 - [ ] Project name (auto-generated, changeable)
 - [ ] Slice names derived from project name (e.g. `projectname_001`)
@@ -70,9 +78,9 @@
 - [ ] Slice names shown in slice list
 
 ## Export & Persistence
+- [x] ZIP export containing: each slice WAV, sidecar JSON, original WAV
+- [x] Sidecar stores: version, original filename, sample rate, slices
 - [ ] Save/load JSON sidecar file (`filename.slices.json`)
-- [ ] ZIP export containing: each slice WAV, sidecar JSON, original WAV (toggleable)
-- [ ] Sidecar stores: version, original filename, sample rate, slices with names
 - [ ] Resume from sidecar: reload slice boundaries and names
 - [ ] **Open question:** after resuming from sidecar, should renaming/reordering be locked
   to avoid confusion? Or allow it with a warning?

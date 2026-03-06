@@ -9,12 +9,22 @@
 <body>
   <div id="app">
     <header id="toolbar">
-      <button id="btn-load" type="button">Load WAV</button>
-      <input id="file-input" type="file" accept=".wav,audio/wav" hidden />
-      <span id="file-name"></span>
+      <span style="flex:1"></span>
+      <span id="project-title" class="hidden" contenteditable="false"></span>
+      <button id="btn-close" class="hidden" type="button" title="Close project">&times;</button>
       <span style="flex:1"></span>
       <button id="btn-settings" type="button">Settings</button>
     </header>
+
+    <input id="file-input" type="file" accept=".wav,audio/wav" hidden />
+    <input id="project-input" type="file" accept=".zip" hidden />
+
+    <section id="start-screen">
+      <div id="start-buttons">
+        <button id="btn-load-wav" type="button">Load WAV</button>
+        <button id="btn-load-project" type="button">Load Project</button>
+      </div>
+    </section>
 
     <main id="editor" class="hidden">
       <div id="waveform-container">
