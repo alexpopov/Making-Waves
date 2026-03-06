@@ -5,7 +5,7 @@
  * sample-accurate cursor rendering.
  */
 
-import { getAudioContext, ensureResumed } from './audio.js';
+import { getAudioContext, ensureResumedSync } from './audio.js';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -53,16 +53,17 @@ export function setCallbacks(playhead: PlayheadCallback, stop: StopCallback): vo
 
 /**
  * Play a region of the audio buffer.
+ * Synchronous to avoid microtask delays and keep iOS gesture context.
  */
-export async function playRegion(
+export function playRegion(
   buffer: AudioBuffer,
   startSample: number,
   endSample: number,
   loop: boolean = false
-): Promise<void> {
+): void {
   stop();
 
-  const ac = await ensureResumed();
+  const ac = ensureResumedSync();
   currentBuffer = buffer;
 
   // Create AnalyserNode for real-time visualization

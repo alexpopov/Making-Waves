@@ -588,11 +588,11 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Transport controls ---
-btnPlay.addEventListener('click', async () => {
+btnPlay.addEventListener('click', () => {
   if (!audioBuffer || !slicer) return;
   if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
     const s = slicer.slices[selectedSlice];
-    await playRegion(audioBuffer, s.start, s.end, isLooping);
+    playRegion(audioBuffer, s.start, s.end, isLooping);
   }
 });
 
@@ -754,12 +754,12 @@ function renderSliceList(): void {
 
     const playBtn = document.createElement('button');
     playBtn.textContent = '▶';
-    playBtn.addEventListener('click', async (e) => {
+    playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       selectedSlice = i;
       redraw();
       renderSliceList();
-      if (audioBuffer) await playRegion(audioBuffer, slice.start, slice.end, isLooping);
+      if (audioBuffer) playRegion(audioBuffer, slice.start, slice.end, isLooping);
     });
 
     const exportBtn = document.createElement('button');
