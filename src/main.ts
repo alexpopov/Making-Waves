@@ -320,8 +320,15 @@ canvas.addEventListener('pointerdown', (e) => {
     return;
   }
 
-  // Second: if we have a pending start, complete the slice
+  // Second: if we have a pending start, either grab it (close click) or complete the slice
   if (slicer.pendingStart !== null) {
+    const dPending = Math.abs(slicer.pendingStart - sample);
+    if (dPending <= toleranceSamples) {
+      // Close to the pending marker — grab it for dragging instead of completing
+      pendingDrag = { hit: { sliceIndex: -1, which: 'start' }, startX: e.clientX };
+      canvas.setPointerCapture(e.pointerId);
+      return;
+    }
     saveSnapshot(); // before completing slice
     const idx = endSlice(slicer, sample);
     if (idx >= 0) {
@@ -354,7 +361,9 @@ canvas.addEventListener('pointermove', (e) => {
       const toleranceSamples = (12 / rect.width) * vpLen;
       const sample = pixelToSample(canvas, e.clientX, vp);
       const hit = hitTestMarker(slicer, sample, toleranceSamples);
-      canvas.style.cursor = hit ? 'grab' : 'crosshair';
+      const nearPending = slicer.pendingStart !== null
+        && Math.abs(slicer.pendingStart - sample) <= toleranceSamples;
+      canvas.style.cursor = (hit || nearPending) ? 'grab' : 'crosshair';
     }
   }
 
@@ -372,6 +381,14 @@ canvas.addEventListener('pointermove', (e) => {
 
   if (!dragging || !slicer) return;
   const sample = pixelToSample(canvas, e.clientX, getViewport());
+
+  // Dragging the pending start marker (sliceIndex sentinel -1)
+  if (dragging.sliceIndex === -1) {
+    slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, sample));
+    redraw();
+    return;
+  }
+
   const newIdx = moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
   dragging = { ...dragging, sliceIndex: newIdx };
   selectedSlice = newIdx;

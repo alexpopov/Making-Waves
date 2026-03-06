@@ -75,6 +75,9 @@ export function registerKeyboard(ctx: KeyboardContext): void {
         if (audioBuffer && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
           const s = slicer.slices[selectedSlice];
           playRegion(audioBuffer, s.start, s.end, ctx.isLooping());
+        } else if (audioBuffer && slicer && slicer.pendingStart !== null) {
+          // Play from pending start to end of file so you can hear where you are
+          playRegion(audioBuffer, slicer.pendingStart, slicer.totalSamples, false);
         }
       }
     }
@@ -144,6 +147,18 @@ export function registerKeyboard(ctx: KeyboardContext): void {
         const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
         ctx.setSelection(newIdx, selectedMarker);
       }
+    }
+
+    // h/l/Arrow — nudge pending start when no slice is selected
+    if ((e.key === 'h' || e.key === 'l' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && slicer && slicer.pendingStart !== null && selectedSlice === null) {
+      e.preventDefault();
+      const left = e.key === 'h' || e.key === 'ArrowLeft';
+      const vp = getViewport();
+      const nudge = Math.max(1, Math.round((vp.end - vp.start) * 0.005));
+      const delta = left ? -nudge : nudge;
+      ctx.saveSnapshot();
+      slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, slicer.pendingStart + delta));
+      ctx.redraw();
     }
 
     // z — toggle zoom based on current selection
