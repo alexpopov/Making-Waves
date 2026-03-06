@@ -410,6 +410,24 @@ registerKeyboard({
   },
   invalidatePeaks() { peaks = null; },
   redraw,
+  startRename() {
+    if (selectedSlice === null || !slicer || selectedSlice >= slicer.slices.length) return;
+    const i = selectedSlice;
+    const currentName = slicer.slices[i].name ?? '';
+    sliceList.startRename(
+      i,
+      currentName,
+      (newName) => {
+        if (!slicer) return;
+        if (newName !== currentName) {
+          saveSnapshot();
+          slicer.slices[i].name = newName || undefined;
+        }
+        renderSliceList();
+      },
+      () => renderSliceList(),
+    );
+  },
 });
 
 // --- Transport controls ---

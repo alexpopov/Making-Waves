@@ -35,6 +35,8 @@ export interface KeyboardContext {
   /** Tell main.ts that the viewport changed and peaks must be regenerated. */
   invalidatePeaks(): void;
   redraw(): void;
+  /** Enter inline rename mode for the selected slice. */
+  startRename(): void;
 }
 
 export function registerKeyboard(ctx: KeyboardContext): void {
@@ -186,6 +188,12 @@ export function registerKeyboard(ctx: KeyboardContext): void {
 
       ctx.invalidatePeaks();
       ctx.redraw();
+    }
+
+    // , — rename selected slice
+    if (e.key === ',' && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+      e.preventDefault();
+      ctx.startRename();
     }
   });
 }

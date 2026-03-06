@@ -20,6 +20,8 @@ export interface SliceListContext {
 export class SliceList {
   private rows: HTMLLIElement[] = [];
   private emptyHint: HTMLLIElement | null = null;
+  /** Row index currently in rename mode — skipped during re-renders. */
+  private renamingIndex: number | null = null;
 
   constructor(
     private readonly ul: HTMLUListElement,
@@ -67,12 +69,14 @@ export class SliceList {
     sampleRate: number,
     isSelected: boolean,
   ): void {
+    // Never rebuild a row while it is being renamed — the contenteditable
+    // span would be destroyed mid-edit.
+    if (i === this.renamingIndex) return;
+
     li.className = isSelected ? 'selected' : '';
     li.style.borderLeft = `3px solid ${sliceColor(i)}`;
     li.style.paddingLeft = '8px';
 
-    // Rebuild children each render — fast for typical slice counts.
-    // The <li> itself stays stable for future contenteditable rename support.
     li.innerHTML = '';
 
     const startSec = (slice.start / sampleRate).toFixed(2);
@@ -80,9 +84,18 @@ export class SliceList {
     const durSec = ((slice.end - slice.start) / sampleRate).toFixed(2);
 
     const info = document.createElement('span');
-    info.textContent = `#${i + 1}  ${startSec}s – ${endSec}s  (${durSec}s)`;
     info.style.cursor = 'pointer';
     info.addEventListener('click', () => this.ctx.setSelection(i, null));
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'slice-label';
+    nameSpan.textContent = slice.name ?? `#${i + 1}`;
+
+    const timesSpan = document.createElement('span');
+    timesSpan.textContent = `  ${startSec}s – ${endSec}s  (${durSec}s)`;
+
+    info.appendChild(nameSpan);
+    info.appendChild(timesSpan);
 
     const btnGroup = document.createElement('span');
 
@@ -114,6 +127,71 @@ export class SliceList {
     btnGroup.appendChild(exportBtn);
     li.appendChild(info);
     li.appendChild(btnGroup);
+  }
+
+  /**
+   * Make a row's label inline-editable.
+   *
+   * @param currentName  Pre-filled text (empty string = no current name).
+   * @param onCommit     Called with the final string when the user presses
+   *                     Enter or blurs — even if unchanged, so callers can
+   *                     re-render without special-casing.
+   * @param onCancel     Called when the user presses Escape.
+   */
+  startRename(
+    i: number,
+    currentName: string,
+    onCommit: (name: string) => void,
+    onCancel: () => void,
+  ): void {
+    const li = this.rows[i];
+    if (!li) return;
+
+    const nameSpan = li.querySelector('.slice-label') as HTMLSpanElement | null;
+    if (!nameSpan) return;
+
+    this.renamingIndex = i;
+    nameSpan.textContent = currentName;
+    nameSpan.setAttribute('contenteditable', 'true');
+    nameSpan.style.outline = '1px solid currentColor';
+    nameSpan.style.cursor = 'text';
+    nameSpan.focus();
+
+    // Select all text so the user can immediately type a replacement
+    const range = document.createRange();
+    range.selectNodeContents(nameSpan);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+
+    let settled = false;
+
+    const commit = () => {
+      if (settled) return;
+      settled = true;
+      nameSpan.setAttribute('contenteditable', 'false');
+      nameSpan.style.outline = '';
+      nameSpan.style.cursor = '';
+      this.renamingIndex = null;
+      onCommit(nameSpan.textContent?.trim() ?? '');
+    };
+
+    const cancel = () => {
+      if (settled) return;
+      settled = true;
+      nameSpan.setAttribute('contenteditable', 'false');
+      nameSpan.style.outline = '';
+      nameSpan.style.cursor = '';
+      this.renamingIndex = null;
+      onCancel();
+    };
+
+    nameSpan.addEventListener('blur', commit, { once: true });
+    nameSpan.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); nameSpan.blur(); }
+      if (e.key === 'Escape') { e.preventDefault(); cancel(); nameSpan.blur(); }
+      // Swallow all keystrokes so app shortcuts don't fire while typing
+      e.stopPropagation();
+    });
   }
 
   private clearRows(): void {
