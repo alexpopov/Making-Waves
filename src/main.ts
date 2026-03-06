@@ -248,13 +248,10 @@ document.addEventListener('pointerdown', (e) => {
 });
 
 // --- Close project ---
-btnClose.addEventListener('click', () => {
+btnClose.addEventListener('click', async () => {
   if (!audioBuffer) return;
   const shouldSave = confirm('Save project before closing?');
-  if (shouldSave) {
-    // Trigger save, then close
-    btnSaveProject.click();
-  }
+  if (shouldSave) await saveProject();
   closeProject();
 });
 
@@ -591,7 +588,7 @@ btnStop.addEventListener('click', () => {
 });
 
 // --- Save ---
-btnSaveProject.addEventListener('click', async () => {
+async function saveProject(): Promise<void> {
   if (!slicer || !audioBuffer || !originalFile) return;
 
   const baseName = projectName || originalFile.name.replace(/\.wav$/i, '');
@@ -623,6 +620,10 @@ btnSaveProject.addEventListener('click', async () => {
 
   const zip = createZip(entries);
   downloadBlob(zip, `${baseName}.zip`);
+}
+
+btnSaveProject.addEventListener('click', () => {
+  saveProject().catch(err => console.error('[making-waves] Save error:', err));
 });
 
 btnSaveJson.addEventListener('click', () => {
