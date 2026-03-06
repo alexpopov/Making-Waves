@@ -50,7 +50,7 @@
 - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
 - [ ] `r` — toggle loop (repeat) mode
 - [ ] `,` (comma) — rename selected segment
-- [ ] `tab` (comma) — toggle selected marker?
+- [x] `.` (period) — toggle selected marker between start/end of segment
 
 ## Cursor Feedback
 - [x] Top 10% zone: pointer cursor

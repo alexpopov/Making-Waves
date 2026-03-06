@@ -327,23 +327,13 @@ canvas.addEventListener('pointerdown', (e) => {
     // Near a marker? Select its slice.
     const edgeHit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
     if (edgeHit) {
-      selectedSlice = edgeHit.sliceIndex;
-      selectedMarker = null;
-      redraw();
-      renderSliceList();
+      setSelection(edgeHit.sliceIndex, null);
       return;
     }
 
     // Otherwise, select the slice region we clicked inside
     const sliceIdx = findSliceAt(slicer, sample);
-    if (sliceIdx >= 0) {
-      selectedSlice = sliceIdx;
-    } else {
-      selectedSlice = null;
-    }
-    selectedMarker = null;
-    redraw();
-    renderSliceList();
+    setSelection(sliceIdx >= 0 ? sliceIdx : null, null);
     return;
   }
 
@@ -353,11 +343,8 @@ canvas.addEventListener('pointerdown', (e) => {
   const hit = hitTestMarker(slicer, sample, toleranceSamples);
   if (hit) {
     pendingDrag = { hit, startX: e.clientX };
-    selectedSlice = hit.sliceIndex;
-    selectedMarker = hit.which;
     canvas.setPointerCapture(e.pointerId);
-    redraw();
-    renderSliceList();
+    setSelection(hit.sliceIndex, hit.which);
     return;
   }
 
@@ -366,11 +353,9 @@ canvas.addEventListener('pointerdown', (e) => {
     saveSnapshot(); // before completing slice
     const idx = endSlice(slicer, sample);
     if (idx >= 0) {
-      selectedSlice = idx;
       debug(`Slice #${idx + 1} created`);
+      setSelection(idx, null);
     }
-    redraw();
-    renderSliceList();
     return;
   }
 
@@ -436,15 +421,15 @@ document.addEventListener('keydown', (e) => {
       saveSnapshot(); // before cancelling pending
       cancelPending(slicer);
       debug('Pending slice cancelled');
+      redraw();
+      renderSliceList();
     } else if (selectedMarker !== null) {
-      selectedMarker = null;
       debug('Marker deselected');
+      setSelection(selectedSlice, null);
     } else if (selectedSlice !== null) {
-      selectedSlice = null;
       debug('Selection cleared');
+      setSelection(null, null);
     }
-    redraw();
-    renderSliceList();
   }
 
   if (e.key === ' ') {
@@ -465,14 +450,14 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     saveSnapshot();
     removeSlice(slicer, selectedSlice);
-    selectedMarker = null;
-    if (slicer.slices.length === 0) {
-      selectedSlice = null;
-    } else {
-      selectedSlice = Math.min(selectedSlice, slicer.slices.length - 1);
-    }
-    redraw();
-    renderSliceList();
+    const next = slicer.slices.length === 0 ? null : Math.min(selectedSlice, slicer.slices.length - 1);
+    setSelection(next, null);
+  }
+
+  // . — toggle selected marker between start/end
+  if (e.key === '.' && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
+    const next = selectedMarker === null ? 'start' : selectedMarker === 'start' ? 'end' : 'start';
+    setSelection(selectedSlice, next);
   }
 
   // u/U or Cmd-Z/Ctrl-Z — undo/redo
@@ -498,18 +483,16 @@ document.addEventListener('keydown', (e) => {
   if ((e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') && slicer && slicer.slices.length > 0) {
     e.preventDefault();
     const forward = e.key === 'j' || e.key === 'ArrowDown';
+    let next: number;
     if (selectedSlice === null) {
-      selectedSlice = forward ? 0 : slicer.slices.length - 1;
+      next = forward ? 0 : slicer.slices.length - 1;
     } else {
       const delta = forward ? 1 : -1;
-      selectedSlice = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
+      next = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
     }
-    selectedMarker = null;
     zoomLevel = 'out';
     zoomPrevViewport = null;
-    ensureSliceVisible(selectedSlice);
-    redraw();
-    renderSliceList();
+    setSelection(next, null);
   }
 
   // h/l/ArrowLeft/ArrowRight — select or nudge marker
@@ -518,7 +501,7 @@ document.addEventListener('keydown', (e) => {
     const left = e.key === 'h' || e.key === 'ArrowLeft';
     if (selectedMarker === null) {
       // No marker selected: left picks start, right picks end
-      selectedMarker = left ? 'start' : 'end';
+      setSelection(selectedSlice, left ? 'start' : 'end');
     } else {
       // Marker selected: nudge it. Amount scales with zoom level.
       const vp = getViewport();
@@ -527,14 +510,8 @@ document.addEventListener('keydown', (e) => {
       const delta = left ? -nudge : nudge;
       saveSnapshot();
       const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
-      selectedSlice = newIdx;
+      setSelection(newIdx, selectedMarker);
     }
-    // Ensure the selected marker is visible
-    const markerSample = slicer.slices[selectedSlice][selectedMarker];
-    ensureVisible(markerSample, markerSample);
-    peaks = null;
-    redraw();
-    renderSliceList();
   }
 
   // z — toggle zoom based on selection state
@@ -669,11 +646,32 @@ setCallbacks(
   () => { playheadSample = null; redraw(); }
 );
 
-// --- Viewport follow ---
-function ensureSliceVisible(sliceIdx: number): void {
-  if (!slicer || sliceIdx < 0 || sliceIdx >= slicer.slices.length) return;
-  const s = slicer.slices[sliceIdx];
-  ensureVisible(s.start, s.end);
+// --- Selection + viewport follow ---
+
+/**
+ * Central selection setter. Updates selectedSlice/selectedMarker,
+ * scrolls the viewport to keep the focus visible, then redraws.
+ */
+function setSelection(slice: number | null, marker: 'start' | 'end' | null): void {
+  selectedSlice = slice;
+  selectedMarker = marker;
+  followSelection();
+  redraw();
+  renderSliceList();
+}
+
+/** Ensure the current selection focus point is visible in the viewport. */
+function followSelection(): void {
+  if (!slicer || selectedSlice === null || selectedSlice >= slicer.slices.length) return;
+  const s = slicer.slices[selectedSlice];
+  if (selectedMarker !== null) {
+    // Single marker — keep it centered-ish
+    const markerSample = s[selectedMarker];
+    ensureVisible(markerSample, markerSample);
+  } else {
+    // Whole segment
+    ensureVisible(s.start, s.end);
+  }
   peaks = null; // viewport may have changed
 }
 
@@ -747,9 +745,7 @@ function renderSliceList(): void {
     info.textContent = `#${i + 1}  ${startSec}s – ${endSec}s  (${durSec}s)`;
     info.style.cursor = 'pointer';
     info.addEventListener('click', () => {
-      selectedSlice = i;
-      redraw();
-      renderSliceList();
+      setSelection(i, null);
     });
 
     const btnGroup = document.createElement('span');
@@ -758,9 +754,7 @@ function renderSliceList(): void {
     playBtn.textContent = '▶';
     playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      selectedSlice = i;
-      redraw();
-      renderSliceList();
+      setSelection(i, null);
       if (audioBuffer) playRegion(audioBuffer, slice.start, slice.end, isLooping);
     });
 
@@ -781,11 +775,10 @@ function renderSliceList(): void {
       if (!slicer) return;
       saveSnapshot(); // before delete
       removeSlice(slicer, i);
-      if (selectedSlice !== null && selectedSlice >= slicer.slices.length) {
-        selectedSlice = slicer.slices.length > 0 ? slicer.slices.length - 1 : null;
-      }
-      redraw();
-      renderSliceList();
+      const next = slicer.slices.length === 0 ? null
+        : selectedSlice !== null && selectedSlice >= slicer.slices.length ? slicer.slices.length - 1
+        : selectedSlice;
+      setSelection(next, null);
     });
 
     btnGroup.appendChild(delBtn);
