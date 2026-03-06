@@ -10,13 +10,14 @@ import { decodeAudioFile } from './audio.js';
 import { pixelToSample } from './coords.js';
 import { SELECT_ZONE } from './constants.js';
 import { generatePeaks, drawWaveform, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
-import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible, zoomToRange, setViewport, type Viewport } from './viewport.js';
+import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
-  createSlicer, beginSlice, endSlice, cancelPending,
+  createSlicer, beginSlice, endSlice,
   removeSlice, moveMarker, hitTestMarker, hitTestMarkerPreferSelected,
   findSliceAt,
   type SlicerState, type MarkerHit,
 } from './slicer.js';
+import { registerKeyboard } from './keyboard.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
 import { encodeWav, downloadBlob, encodeWavToUint8Array } from './wav-writer.js';
 import { createZip } from './zip-writer.js';
@@ -54,8 +55,6 @@ let dragging: MarkerHit | null = null;
 let pendingDrag: { hit: MarkerHit; startX: number } | null = null;
 const DRAG_THRESHOLD_PX = 5;
 let isLooping = false;
-let zoomPrevViewport: Viewport | null = null;
-let zoomLevel: 'out' | 'none' | 'segment' | 'marker' = 'out';
 let projectName = '';
 
 // --- Undo/redo helpers ---
@@ -307,8 +306,6 @@ themeSelect.addEventListener('change', () => {
 
 // --- Waveform interaction (pointer events) ---
 
-const MIN_MARKER_ZOOM = 500; // minimum sample range when zooming on a marker
-
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
 
@@ -412,155 +409,30 @@ canvas.addEventListener('pointerup', () => {
   dragging = null;
 });
 
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    if (slicer && slicer.pendingStart !== null) {
-      saveSnapshot(); // before cancelling pending
-      cancelPending(slicer);
-      debug('Pending slice cancelled');
-      redraw();
-      renderSliceList();
-    } else if (selectedMarker !== null) {
-      debug('Marker deselected');
-      setSelection(selectedSlice, null);
-    } else if (selectedSlice !== null) {
-      debug('Selection cleared');
-      setSelection(null, null);
-    }
-  }
-
-  if (e.key === ' ') {
-    e.preventDefault(); // don't scroll the page
-    const ps = getPlaybackState();
-    if (ps.isPlaying) {
-      stop();
-      playheadSample = null;
-      redraw();
-    } else if (audioBuffer && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
-      const s = slicer.slices[selectedSlice];
-      playRegion(audioBuffer, s.start, s.end, isLooping);
-    }
-  }
-
-  // Backspace/Delete — delete selected slice
-  if ((e.key === 'Backspace' || e.key === 'Delete') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
-    e.preventDefault();
-    saveSnapshot();
-    removeSlice(slicer, selectedSlice);
-    const next = slicer.slices.length === 0 ? null : Math.min(selectedSlice, slicer.slices.length - 1);
-    setSelection(next, null);
-  }
-
-  // . — toggle selected marker between start/end
-  if (e.key === '.' && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
-    const next = selectedMarker === null ? 'start' : selectedMarker === 'start' ? 'end' : 'start';
-    setSelection(selectedSlice, next);
-  }
-
-  // u/U or Cmd-Z/Ctrl-Z — undo/redo
-  const mod = e.metaKey || e.ctrlKey;
-  if (slicer && ((e.key === 'u' && !e.shiftKey && !mod) || (e.key === 'z' && mod && !e.shiftKey))) {
-    e.preventDefault();
+// --- Keyboard shortcuts ---
+registerKeyboard({
+  getSlicer: () => slicer,
+  getAudioBuffer: () => audioBuffer,
+  getSelectedSlice: () => selectedSlice,
+  getSelectedMarker: () => selectedMarker,
+  isLooping: () => isLooping,
+  setSelection,
+  saveSnapshot,
+  doUndo() {
     const snap = undo(currentSnapshot());
-    if (snap) {
-      restoreSnapshot(snap);
-      debug('Undo');
-    }
-  }
-  if (slicer && ((e.key === 'U' && !mod) || (e.key === 'z' && mod && e.shiftKey))) {
-    e.preventDefault();
+    if (snap) { restoreSnapshot(snap); debug('Undo'); }
+  },
+  doRedo() {
     const snap = redo(currentSnapshot());
-    if (snap) {
-      restoreSnapshot(snap);
-      debug('Redo');
-    }
-  }
-
-  // j/k/ArrowDown/ArrowUp — select next/previous slice
-  if ((e.key === 'j' || e.key === 'k' || e.key === 'ArrowDown' || e.key === 'ArrowUp') && slicer && slicer.slices.length > 0) {
-    e.preventDefault();
-    const forward = e.key === 'j' || e.key === 'ArrowDown';
-    let next: number;
-    if (selectedSlice === null) {
-      next = forward ? 0 : slicer.slices.length - 1;
-    } else {
-      const delta = forward ? 1 : -1;
-      next = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
-    }
-    zoomLevel = 'out';
-    zoomPrevViewport = null;
-    setSelection(next, null);
-  }
-
-  // h/l/ArrowLeft/ArrowRight — select or nudge marker
-  if ((e.key === 'h' || e.key === 'l' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
-    e.preventDefault();
-    const left = e.key === 'h' || e.key === 'ArrowLeft';
-    if (selectedMarker === null) {
-      // No marker selected: left picks start, right picks end
-      setSelection(selectedSlice, left ? 'start' : 'end');
-    } else {
-      // Marker selected: nudge it. Amount scales with zoom level.
-      const vp = getViewport();
-      const vpLen = vp.end - vp.start;
-      const nudge = Math.max(1, Math.round(vpLen * 0.005));
-      const delta = left ? -nudge : nudge;
-      saveSnapshot();
-      const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
-      setSelection(newIdx, selectedMarker);
-    }
-  }
-
-  // z — toggle zoom based on selection state
-  if (e.key === 'z' && !mod && slicer) {
-    // Determine what zoom target matches current selection
-    let targetLevel: 'none' | 'segment' | 'marker' = 'none';
-    if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
-      targetLevel = 'marker';
-    } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
-      targetLevel = 'segment';
-    }
-
-    // If we're zoomed in to the right target, zoom back out.
-    // Otherwise, zoom in to the current target (even if already zoomed to something else).
-    const shouldZoomOut = zoomLevel !== 'out' && zoomLevel === targetLevel;
-
-    if (shouldZoomOut) {
-      // Already zoomed in to this target — toggle back
-      if (zoomPrevViewport) {
-        setViewport(zoomPrevViewport);
-        zoomPrevViewport = null;
-      }
-      zoomLevel = 'out';
-    } else {
-      // Save current viewport
-      zoomPrevViewport = { ...getViewport() };
-
-      if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
-        // Marker selected — zoom tight on the marker
-        const s = slicer.slices[selectedSlice];
-        const markerPos = s[selectedMarker];
-        const markerRange = Math.max(MIN_MARKER_ZOOM, (s.end - s.start) * 0.08);
-        zoomToRange(markerPos - markerRange, markerPos + markerRange, 0.1);
-        zoomLevel = 'marker';
-      } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
-        // Segment selected — zoom to fill with the segment
-        const s = slicer.slices[selectedSlice];
-        zoomToRange(s.start, s.end, 0.1);
-        zoomLevel = 'segment';
-      } else {
-        // Nothing selected — zoom into the center of the viewport
-        const vp = getViewport();
-        const center = (vp.start + vp.end) / 2;
-        const range = (vp.end - vp.start) * 0.15;
-        zoomToRange(center - range, center + range, 0.1);
-        zoomLevel = 'none';
-      }
-    }
-    peaks = null;
+    if (snap) { restoreSnapshot(snap); debug('Redo'); }
+  },
+  stopPlayback() {
+    stop();
+    playheadSample = null;
     redraw();
-  }
+  },
+  invalidatePeaks() { peaks = null; },
+  redraw,
 });
 
 // --- Transport controls ---
