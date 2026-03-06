@@ -9,7 +9,8 @@ import { debug } from './debug.js';
 import { decodeAudioFile } from './audio.js';
 import { pixelToSample } from './coords.js';
 import { SELECT_ZONE } from './constants.js';
-import { generatePeaks, drawWaveform, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
+import { generatePeaks, drawWaveform, invalidateThemeCache, type Peaks } from './waveform.js';
+import { SliceList } from './slice-list.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
   createSlicer, beginSlice, endSlice,
@@ -592,74 +593,29 @@ canvas.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // --- Slice list ---
+const sliceList = new SliceList(slicesUl, {
+  setSelection: (i, marker) => setSelection(i, marker),
+  saveSnapshot,
+  playSlice(start, end) {
+    if (audioBuffer) playRegion(audioBuffer, start, end, isLooping);
+  },
+  removeSlice(i) {
+    if (!slicer) return;
+    removeSlice(slicer, i);
+    const next = slicer.slices.length === 0 ? null
+      : selectedSlice !== null && selectedSlice >= slicer.slices.length ? slicer.slices.length - 1
+      : selectedSlice;
+    setSelection(next, null);
+  },
+  exportSlice(i) {
+    if (!audioBuffer || !slicer) return;
+    const baseName = projectName || 'slice';
+    const blob = encodeWav(audioBuffer, slicer.slices[i].start, slicer.slices[i].end);
+    downloadBlob(blob, `${baseName}_${String(i + 1).padStart(3, '0')}.wav`);
+  },
+});
+
 function renderSliceList(): void {
   if (!slicer || !audioBuffer) return;
-
-  slicesUl.innerHTML = '';
-
-  if (slicer.slices.length === 0) {
-    const li = document.createElement('li');
-    li.style.color = 'var(--text-dim)';
-    li.textContent = 'Click waveform to set slice start, click again for end';
-    slicesUl.appendChild(li);
-    return;
-  }
-
-  slicer.slices.forEach((slice, i) => {
-    const li = document.createElement('li');
-    if (i === selectedSlice) li.classList.add('selected');
-    li.style.borderLeft = `3px solid ${sliceColor(i)}`;
-    li.style.paddingLeft = '8px';
-
-    const startSec = (slice.start / audioBuffer!.sampleRate).toFixed(2);
-    const endSec = (slice.end / audioBuffer!.sampleRate).toFixed(2);
-    const durSec = ((slice.end - slice.start) / audioBuffer!.sampleRate).toFixed(2);
-
-    const info = document.createElement('span');
-    info.textContent = `#${i + 1}  ${startSec}s – ${endSec}s  (${durSec}s)`;
-    info.style.cursor = 'pointer';
-    info.addEventListener('click', () => {
-      setSelection(i, null);
-    });
-
-    const btnGroup = document.createElement('span');
-
-    const playBtn = document.createElement('button');
-    playBtn.textContent = '▶';
-    playBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setSelection(i, null);
-      if (audioBuffer) playRegion(audioBuffer, slice.start, slice.end, isLooping);
-    });
-
-    const exportBtn = document.createElement('button');
-    exportBtn.textContent = '⬇';
-    exportBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!audioBuffer) return;
-      const baseName = projectName || 'slice';
-      const blob = encodeWav(audioBuffer, slice.start, slice.end);
-      downloadBlob(blob, `${baseName}_${String(i + 1).padStart(3, '0')}.wav`);
-    });
-
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!slicer) return;
-      saveSnapshot(); // before delete
-      removeSlice(slicer, i);
-      const next = slicer.slices.length === 0 ? null
-        : selectedSlice !== null && selectedSlice >= slicer.slices.length ? slicer.slices.length - 1
-        : selectedSlice;
-      setSelection(next, null);
-    });
-
-    btnGroup.appendChild(delBtn);
-    btnGroup.appendChild(playBtn);
-    btnGroup.appendChild(exportBtn);
-    li.appendChild(info);
-    li.appendChild(btnGroup);
-    slicesUl.appendChild(li);
-  });
+  sliceList.render(slicer.slices, audioBuffer.sampleRate, selectedSlice);
 }
