@@ -8,6 +8,7 @@
 import { debug } from './debug.js';
 import { decodeAudioFile } from './audio.js';
 import { pixelToSample } from './coords.js';
+import { SELECT_ZONE } from './constants.js';
 import { generatePeaks, drawWaveform, sliceColor, invalidateThemeCache, type Peaks } from './waveform.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible, zoomToRange, setViewport, type Viewport } from './viewport.js';
 import {
@@ -306,7 +307,6 @@ themeSelect.addEventListener('change', () => {
 
 // --- Waveform interaction (pointer events) ---
 
-const SELECT_ZONE = 0.10; // top 10% of canvas = selection zone
 const MIN_MARKER_ZOOM = 500; // minimum sample range when zooming on a marker
 
 canvas.addEventListener('pointerdown', (e) => {

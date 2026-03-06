@@ -7,6 +7,7 @@
 
 import type { Slice } from './slicer.js';
 import { type Viewport, pixelToSample } from './coords.js';
+import { SELECT_ZONE } from './constants.js';
 
 export type { Viewport };
 
@@ -138,11 +139,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const themeSelectLine = style.getPropertyValue('--wave-select-line').trim() || 'rgba(255,255,255,0.12)';
   const themePlayhead = style.getPropertyValue('--wave-playhead').trim() || '#ffffff';
 
-  // Waveform lives in the middle 80% (10%–90%), leaving
-  // top 10% for selection zone and bottom 10% as padding.
-  const MARGIN = 0.10;
-  const waveTop = h * MARGIN;
-  const waveBottom = h * (1 - MARGIN);
+  // Waveform lives in the middle 80% (10%–90%), matching SELECT_ZONE.
+  const waveTop = h * SELECT_ZONE;
+  const waveBottom = h * (1 - SELECT_ZONE);
   const waveHeight = waveBottom - waveTop;
   const waveMidY = waveTop + waveHeight / 2;
 
