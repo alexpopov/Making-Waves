@@ -3,21 +3,14 @@
  *
  * All mutable app state is accessed via KeyboardContext callbacks,
  * keeping this module free of direct DOM or app-state dependencies.
- *
- * Zoom state (level + saved viewport) lives here because it is driven
- * exclusively by keyboard gestures and has no meaning outside of them.
+ * Zoom toggle logic lives in zoom.ts (shared with toolbar buttons).
  */
 
 import { debug } from './debug.js';
 import { cancelPending, removeSlice, moveMarker, type SlicerState } from './slicer.js';
 import { playRegion, getPlaybackState } from './player.js';
-import { getViewport, setViewport, zoomToRange } from './viewport.js';
-import type { Viewport } from './coords.js';
-
-export type ZoomLevel = 'out' | 'none' | 'segment' | 'marker';
-
-/** Minimum sample span when zooming tight on a single marker. */
-const MIN_MARKER_ZOOM = 500;
+import { getViewport } from './viewport.js';
+import { toggleZoom, resetZoom } from './zoom.js';
 
 export interface KeyboardContext {
   getSlicer(): SlicerState | null;
@@ -40,9 +33,6 @@ export interface KeyboardContext {
 }
 
 export function registerKeyboard(ctx: KeyboardContext): void {
-  let zoomLevel: ZoomLevel = 'out';
-  let zoomPrevViewport: Viewport | null = null;
-
   document.addEventListener('keydown', (e) => {
     const slicer = ctx.getSlicer();
     const selectedSlice = ctx.getSelectedSlice();
@@ -125,8 +115,7 @@ export function registerKeyboard(ctx: KeyboardContext): void {
         next = Math.max(0, Math.min(slicer.slices.length - 1, selectedSlice + delta));
       }
       // Navigation resets the zoom toggle state so z works fresh on the new slice
-      zoomLevel = 'out';
-      zoomPrevViewport = null;
+      resetZoom();
       ctx.setSelection(next, null);
     }
 
@@ -163,44 +152,11 @@ export function registerKeyboard(ctx: KeyboardContext): void {
 
     // z — toggle zoom based on current selection
     if (e.key === 'z' && !mod && slicer) {
-      // Determine target zoom level from current selection
-      let targetLevel: 'none' | 'segment' | 'marker' = 'none';
-      if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
-        targetLevel = 'marker';
-      } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
-        targetLevel = 'segment';
-      }
-
-      const shouldZoomOut = zoomLevel !== 'out' && zoomLevel === targetLevel;
-
-      if (shouldZoomOut) {
-        if (zoomPrevViewport) {
-          setViewport(zoomPrevViewport);
-          zoomPrevViewport = null;
-        }
-        zoomLevel = 'out';
-      } else {
-        zoomPrevViewport = { ...getViewport() };
-
-        if (selectedSlice !== null && selectedSlice < slicer.slices.length && selectedMarker !== null) {
-          const s = slicer.slices[selectedSlice];
-          const markerPos = s[selectedMarker];
-          const markerRange = Math.max(MIN_MARKER_ZOOM, (s.end - s.start) * 0.08);
-          zoomToRange(markerPos - markerRange, markerPos + markerRange, 0.1);
-          zoomLevel = 'marker';
-        } else if (selectedSlice !== null && selectedSlice < slicer.slices.length) {
-          const s = slicer.slices[selectedSlice];
-          zoomToRange(s.start, s.end, 0.1);
-          zoomLevel = 'segment';
-        } else {
-          const vp = getViewport();
-          const center = (vp.start + vp.end) / 2;
-          const range = (vp.end - vp.start) * 0.15;
-          zoomToRange(center - range, center + range, 0.1);
-          zoomLevel = 'none';
-        }
-      }
-
+      toggleZoom({
+        selectedSlice,
+        selectedMarker,
+        slices: slicer.slices,
+      });
       ctx.invalidatePeaks();
       ctx.redraw();
     }
