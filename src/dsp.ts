@@ -147,8 +147,11 @@ export interface TransientDetectOptions {
    */
   sensitivity?: number;
   /**
-   * Minimum gap between two accepted transients, in samples.
-   * Prevents double-triggers on a single hit. Default: sampleRate / 8.
+   * Refractory period: minimum gap between two accepted transients, in samples.
+   * After a hit is detected, the detector ignores the next N samples to prevent
+   * double-triggers from the crack, rattle, and body of a single event.
+   * Default: sampleRate * 0.05 (~50 ms). No musical note shorter than a 64th
+   * note at 200 BPM (~40 ms) should need a tighter window than this.
    */
   minGapSamples?: number;
 }
@@ -171,7 +174,7 @@ export function detectTransients(
 ): number[] {
   const frameSize = options.frameSize ?? 512;
   const sensitivity = options.sensitivity ?? 1.5;
-  const minGapSamples = options.minGapSamples ?? Math.round(sampleRate / 8);
+  const minGapSamples = options.minGapSamples ?? Math.round(sampleRate * 0.05);
 
   const energy = hfcEnergy(samples, frameSize);
   const flux = dbFlux(energy);
@@ -263,27 +266,37 @@ export function snapToZeroCrossingBefore(
   const pos = Math.min(Math.floor(position), samples.length - 2);
   const stop = Math.max(quietRadius, pos - windowSize);
 
-  let firstCrossing = -1; // best plain zero crossing (fallback)
+  let bestCrossing = -1;
+  let bestAmplitude = Infinity; // local peak amplitude at the best fallback crossing
 
   for (let i = pos; i >= stop; i--) {
     if (samples[i] * samples[i + 1] > 0) continue; // not a zero crossing
 
     const candidate = Math.abs(samples[i]) <= Math.abs(samples[i + 1]) ? i : i + 1;
 
-    if (firstCrossing === -1) firstCrossing = candidate; // remember for fallback
-
-    // Check that the neighbourhood is genuinely quiet (dead air, not mid-decay)
+    // Measure local amplitude envelope: peak magnitude over the neighbourhood.
+    // This serves both the quiet check and the fallback ranking.
+    let localPeak = 0;
     let quiet = true;
     for (let j = i - quietRadius; j <= i + quietRadius + 1; j++) {
       if (j < 0 || j >= samples.length) continue;
-      if (Math.abs(samples[j]) > quietThreshold) { quiet = false; break; }
+      const a = Math.abs(samples[j]);
+      if (a > localPeak) localPeak = a;
+      if (a > quietThreshold) quiet = false;
     }
-    if (quiet) return candidate;
+
+    if (quiet) return candidate; // dead-air crossing — ideal, take it immediately
+
+    // Not dead-air, but track the crossing with the lowest local amplitude.
+    // Even in a reverb tail energy isn't flat; the local minimum is the
+    // cleanest available cut point and avoids the f×512 stair-step boundary.
+    if (localPeak < bestAmplitude) {
+      bestAmplitude = localPeak;
+      bestCrossing = candidate;
+    }
   }
 
-  // No dead-air crossing found — fall back to the nearest backward zero crossing
-  // rather than the raw unsnapped frame boundary.
-  return firstCrossing !== -1 ? firstCrossing : pos;
+  return bestCrossing !== -1 ? bestCrossing : pos;
 }
 
 /**

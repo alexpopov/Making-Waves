@@ -357,7 +357,6 @@ canvas.addEventListener('pointerdown', (e) => {
   const raw = detectTransients(region, buf.sampleRate, {
     sensitivity: 1.5,
     frameSize: 512,
-    minGapSamples: Math.round(audioBuffer.sampleRate / 8),
   });
   const absolute = raw.map(p => p + sample);
   const windowSize20ms = Math.round(buf.sampleRate * 0.02);
