@@ -48,3 +48,7 @@ change after creation or marker drag — track by object reference.
 - `npx vite` — dev server
 - `npx tsc --noEmit` — type-check
 - `npx vite build` — production build
+
+## Git Commits
+- Use `git commit -m "$(cat <<'COMMIT' ... COMMIT)"` heredoc style for commit messages.
+- Avoid unescaped apostrophes/quotes inside the heredoc body.
