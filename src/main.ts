@@ -25,6 +25,7 @@ import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js'
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
 import { toggleZoom } from './zoom.js';
+import { registerTouch } from './touch.js';
 
 // --- DOM elements ---
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -295,6 +296,9 @@ themeSelect.addEventListener('change', () => {
 
 canvas.addEventListener('pointerdown', (e) => {
   if (!slicer || !audioBuffer) return;
+
+  // Touch gestures (pan/zoom) are handled by touch.ts — skip marker placement
+  if (e.pointerType === 'touch') return;
 
   const rect = canvas.getBoundingClientRect();
   const vp = getViewport();
@@ -665,6 +669,14 @@ canvas.addEventListener('wheel', (e) => {
     redraw();
   }
 }, { passive: false });
+
+// --- Touch pan/zoom ---
+registerTouch(canvas, {
+  onViewportChanged() {
+    invalidatePeaks();
+    redraw();
+  },
+});
 
 // --- Slice list ---
 const sliceList = new SliceList(slicesUl, {
