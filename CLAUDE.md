@@ -50,5 +50,5 @@ change after creation or marker drag — track by object reference.
 - `npx vite build` — production build
 
 ## Git Commits
-- Use `git commit -m "$(cat <<'COMMIT' ... COMMIT)"` heredoc style for commit messages.
-- Avoid unescaped apostrophes/quotes inside the heredoc body.
+- ALWAYS write commit message to a temp file, then `git commit -F /tmp/commit-msg.txt`.
+- Never use `-m` with inline strings — too easy to break on special chars.
