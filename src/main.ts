@@ -115,29 +115,51 @@ document.addEventListener('drop', (e) => {
   }
 });
 
-async function loadFile(file: File): Promise<void> {
+/**
+ * Open a session: wire up state, restore any slices, show the editor.
+ * Both loadFile and loadProject funnel through here.
+ */
+function openSession(
+  buffer: AudioBuffer,
+  file: File,
+  name: string,
+  slices: { start: number; end: number; name?: string }[] = [],
+): void {
+  audioBuffer = buffer;
   originalFile = file;
-  projectName = file.name.replace(/\.wav$/i, '');
+  projectName = name;
+  slicer = createSlicer(buffer.length);
+
+  for (const s of slices) {
+    beginSlice(slicer, s.start);
+    const idx = endSlice(slicer, s.end);
+    if (idx >= 0 && s.name) slicer.slices[idx].name = s.name;
+  }
+
+  selectedSlice = null;
+  selectedMarker = null;
+  invalidatePeaks();
+  clearHistory();
+  resetViewport(buffer.length);
+  showEditor();
+
+  requestAnimationFrame(() => {
+    redraw();
+    renderSliceList();
+  });
+}
+
+async function loadFile(file: File): Promise<void> {
   debug('Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
   try {
-    audioBuffer = await decodeAudioFile(file);
+    const buffer = await decodeAudioFile(file);
     debug('Decoded:', {
-      channels: audioBuffer.numberOfChannels,
-      sampleRate: audioBuffer.sampleRate,
-      duration: audioBuffer.duration.toFixed(2) + 's',
-      samples: audioBuffer.length,
+      channels: buffer.numberOfChannels,
+      sampleRate: buffer.sampleRate,
+      duration: buffer.duration.toFixed(2) + 's',
+      samples: buffer.length,
     });
-    slicer = createSlicer(audioBuffer.length);
-    selectedSlice = null;
-    clearHistory();
-    resetViewport(audioBuffer.length);
-    showEditor();
-
-    requestAnimationFrame(() => {
-      debug('Canvas size:', canvas.getBoundingClientRect().width, 'x', canvas.getBoundingClientRect().height);
-      redraw();
-      renderSliceList();
-    });
+    openSession(buffer, file, file.name.replace(/\.wav$/i, ''));
   } catch (err) {
     console.error('[making-waves] Load error:', err);
     alert(`Error loading file: ${err}`);
@@ -178,27 +200,7 @@ async function loadProject(file: File): Promise<void> {
   debug('Loading project:', file.name);
   try {
     const data = await loadProjectZip(file);
-    originalFile = data.originalFile;
-    projectName = data.projectName;
-    audioBuffer = data.audioBuffer;
-    slicer = createSlicer(audioBuffer.length);
-
-    for (const s of data.slices) {
-      beginSlice(slicer, s.start);
-      const idx = endSlice(slicer, s.end);
-      if (idx >= 0 && s.name) slicer.slices[idx].name = s.name;
-    }
-
-    selectedSlice = null;
-    clearHistory();
-    resetViewport(audioBuffer.length);
-    showEditor();
-
-    requestAnimationFrame(() => {
-      redraw();
-      renderSliceList();
-    });
-
+    openSession(data.audioBuffer, data.originalFile, data.projectName, data.slices);
     debug(`Project loaded: ${data.slices.length} slices restored`);
   } catch (err) {
     console.error('[making-waves] Project load error:', err);
