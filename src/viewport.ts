@@ -75,16 +75,35 @@ export function onWheel(e: WheelEvent, canvas: HTMLCanvasElement): boolean {
   return true;
 }
 
-// --- Internals ---
+/**
+ * Pan the viewport by a sample delta. Positive = pan right.
+ */
+export function panBy(deltaSamples: number): void {
+  let newStart = viewport.start + deltaSamples;
+  let newEnd = viewport.end + deltaSamples;
 
-function applyPan(e: WheelEvent, canvas: HTMLCanvasElement): void {
+  if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+  if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
+
+  viewport = {
+    start: Math.floor(Math.max(0, newStart)),
+    end: Math.floor(Math.min(totalSamples, Math.max(newStart + MIN_VIEWPORT_SAMPLES, newEnd))),
+  };
+}
+
+/**
+ * Zoom by a scale factor around an anchor sample.
+ * factor < 1 = zoom in, factor > 1 = zoom out.
+ */
+export function zoomAt(factor: number, anchorSample: number): void {
   const vpLen = viewport.end - viewport.start;
-  const panSamples = (e.deltaX / canvas.getBoundingClientRect().width) * vpLen;
+  const newLen = Math.min(totalSamples, Math.max(MIN_VIEWPORT_SAMPLES, vpLen * factor));
 
-  let newStart = viewport.start + panSamples;
-  let newEnd = viewport.end + panSamples;
+  // Keep anchor at the same proportional position in the viewport
+  const anchorRatio = (anchorSample - viewport.start) / vpLen;
+  let newStart = anchorSample - anchorRatio * newLen;
+  let newEnd = newStart + newLen;
 
-  // Clamp: keep the viewport length, just shift it
   if (newStart < 0) { newEnd -= newStart; newStart = 0; }
   if (newEnd > totalSamples) { newStart -= (newEnd - totalSamples); newEnd = totalSamples; }
 
@@ -92,6 +111,14 @@ function applyPan(e: WheelEvent, canvas: HTMLCanvasElement): void {
     start: Math.floor(Math.max(0, newStart)),
     end: Math.floor(Math.min(totalSamples, newEnd)),
   };
+}
+
+// --- Internals ---
+
+function applyPan(e: WheelEvent, canvas: HTMLCanvasElement): void {
+  const vpLen = viewport.end - viewport.start;
+  const deltaSamples = (e.deltaX / canvas.getBoundingClientRect().width) * vpLen;
+  panBy(deltaSamples);
 }
 
 function applyZoom(e: WheelEvent, canvas: HTMLCanvasElement): void {
