@@ -20,6 +20,35 @@ export interface Peaks {
   vpEnd: number;
 }
 
+// --- Peak cache ---
+// Keyed by canvas width + viewport range. Invalidated on viewport change,
+// resize, theme change, or file load. Callers call invalidatePeaks() and
+// then getCachedPeaks() on the next draw; generation is deferred until draw.
+
+let _cachedPeaks: Peaks | null = null;
+
+/** Discard the cached peaks. Must be called whenever the viewport changes. */
+export function invalidatePeaks(): void {
+  _cachedPeaks = null;
+}
+
+/**
+ * Return cached peaks if still valid, otherwise generate fresh ones.
+ * This is the preferred entry point for drawing code.
+ */
+export function getCachedPeaks(buffer: AudioBuffer, width: number, vp: Viewport): Peaks {
+  if (
+    _cachedPeaks &&
+    _cachedPeaks.length === width &&
+    _cachedPeaks.vpStart === vp.start &&
+    _cachedPeaks.vpEnd === vp.end
+  ) {
+    return _cachedPeaks;
+  }
+  _cachedPeaks = generatePeaks(buffer, width, vp);
+  return _cachedPeaks;
+}
+
 /**
  * Generate min/max peaks for a given pixel width over a viewport range.
  * Only processes samples within the viewport — zoomed-in views stay fast.

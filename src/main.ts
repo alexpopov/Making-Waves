@@ -9,7 +9,7 @@ import { debug } from './debug.js';
 import { decodeAudioFile } from './audio.js';
 import { pixelToSample } from './coords.js';
 import { SELECT_ZONE } from './constants.js';
-import { generatePeaks, drawWaveform, invalidateThemeCache, type Peaks } from './waveform.js';
+import { getCachedPeaks, invalidatePeaks, drawWaveform, invalidateThemeCache } from './waveform.js';
 import { SliceList } from './slice-list.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
@@ -46,7 +46,6 @@ const btnSaveJson = document.getElementById('btn-save-json') as HTMLButtonElemen
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
 let originalFile: File | null = null;
-let peaks: Peaks | null = null;
 let slicer: SlicerState | null = null;
 let selectedSlice: number | null = null;
 let selectedMarker: 'start' | 'end' | null = null;
@@ -159,7 +158,7 @@ function closeProject(): void {
   stop();
   audioBuffer = null;
   originalFile = null;
-  peaks = null;
+  invalidatePeaks();
   slicer = null;
   selectedSlice = null;
   selectedMarker = null;
@@ -276,7 +275,7 @@ themeSelect.addEventListener('change', () => {
     document.documentElement.setAttribute('data-theme', theme);
   }
   invalidateThemeCache();
-  peaks = null;
+  invalidatePeaks();
   redraw();
   renderSliceList();
 });
@@ -425,7 +424,7 @@ registerKeyboard({
     playheadSample = null;
     redraw();
   },
-  invalidatePeaks() { peaks = null; },
+  invalidatePeaks,
   redraw,
   startRename() {
     if (selectedSlice === null || !slicer || selectedSlice >= slicer.slices.length) return;
@@ -528,7 +527,7 @@ function followSelection(): void {
     // Whole segment
     ensureVisible(s.start, s.end);
   }
-  peaks = null; // viewport may have changed
+  invalidatePeaks(); // viewport may have changed
 }
 
 // --- Drawing ---
@@ -536,15 +535,8 @@ function redraw(): void {
   if (!audioBuffer || !slicer) return;
 
   const rect = canvas.getBoundingClientRect();
-  const width = Math.floor(rect.width);
-
   const vp = getViewport();
-
-  // Regenerate peaks if canvas width changed or viewport changed
-  if (!peaks || peaks.length !== width ||
-      peaks.vpStart !== vp.start || peaks.vpEnd !== vp.end) {
-    peaks = generatePeaks(audioBuffer, width, vp);
-  }
+  const peaks = getCachedPeaks(audioBuffer, Math.floor(rect.width), vp);
 
   drawWaveform(canvas, {
     peaks,
@@ -559,7 +551,7 @@ function redraw(): void {
 }
 
 window.addEventListener('resize', () => {
-  peaks = null;
+  invalidatePeaks();
   redraw();
 });
 
@@ -568,7 +560,7 @@ canvas.addEventListener('wheel', (e) => {
   if (!slicer) return;
   e.preventDefault();
   if (onWheel(e, canvas)) {
-    peaks = null;
+    invalidatePeaks();
     redraw();
   }
 }, { passive: false });
