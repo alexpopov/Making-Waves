@@ -78,9 +78,14 @@ export async function buildProjectZip(
     { name: `${baseName}.waves.json`, data: jsonBytes },
   ];
 
+  const usedNames = new Map<string, number>();
   slices.forEach((s, i) => {
     const sliceBytes = encodeWavToUint8Array(audioBuffer, s.start, s.end);
-    entries.push({ name: `${baseName}_${String(i + 1).padStart(3, '0')}.wav`, data: sliceBytes });
+    const base = s.name ?? `${baseName}_${String(i + 1).padStart(3, '0')}`;
+    const count = usedNames.get(base) ?? 0;
+    usedNames.set(base, count + 1);
+    const sliceName = count === 0 ? base : `${base}_${count + 1}`;
+    entries.push({ name: `${sliceName}.wav`, data: sliceBytes });
   });
 
   return createZip(entries);
