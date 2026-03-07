@@ -81,6 +81,56 @@ export function rmsFlux(energy: Float32Array): Float32Array {
   return out;
 }
 
+/**
+ * Compute High Frequency Content (HFC) energy per frame.
+ *
+ * Uses the RMS of the first difference (sample[i] − sample[i−1]) within each
+ * frame. Adjacent-sample deltas are large when the signal is changing fast
+ * (high frequencies), so a percussive burst of HF noise before a snare thump
+ * or guitar pluck shows up as a spike here before it would appear in plain RMS.
+ */
+export function hfcEnergy(samples: Float32Array, frameSize: number): Float32Array {
+  const numFrames = Math.ceil(samples.length / frameSize);
+  const out = new Float32Array(numFrames);
+
+  for (let f = 0; f < numFrames; f++) {
+    const start = f * frameSize;
+    const end = Math.min(start + frameSize, samples.length);
+    // Need at least one previous sample for a diff; clamp to global index 1.
+    const from = Math.max(start + 1, 1);
+    let sum = 0;
+    for (let i = from; i < end; i++) {
+      const d = samples[i] - samples[i - 1];
+      sum += d * d;
+    }
+    const count = end - from;
+    out[f] = count > 0 ? Math.sqrt(sum / count) : 0;
+  }
+
+  return out;
+}
+
+/**
+ * Compute half-wave rectified spectral flux in dB space.
+ *
+ * Human hearing is logarithmic: a jump from 0.01 → 0.1 is far more
+ * perceptually significant than 0.5 → 0.6, even though the raw linear
+ * difference is the same. Working in dB makes the dynamic threshold
+ * musically meaningful across quiet and loud passages alike.
+ *
+ * @param energy  Per-frame energy values (e.g. from hfcEnergy or rmsEnergy).
+ */
+export function dbFlux(energy: Float32Array): Float32Array {
+  const out = new Float32Array(energy.length);
+  const EPS = 1e-5; // floor at ~−100 dB, prevents log(0)
+  for (let i = 1; i < energy.length; i++) {
+    const dBcurr = 20 * Math.log10(Math.max(energy[i],     EPS));
+    const dBprev = 20 * Math.log10(Math.max(energy[i - 1], EPS));
+    out[i] = Math.max(0, dBcurr - dBprev);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Transient detection
 // ---------------------------------------------------------------------------
@@ -123,8 +173,8 @@ export function detectTransients(
   const sensitivity = options.sensitivity ?? 1.5;
   const minGapSamples = options.minGapSamples ?? Math.round(sampleRate / 8);
 
-  const energy = rmsEnergy(samples, frameSize);
-  const flux = rmsFlux(energy);
+  const energy = hfcEnergy(samples, frameSize);
+  const flux = dbFlux(energy);
 
   // Dynamic threshold = sensitivity × median of non-zero flux values
   const nonZero = Array.from(flux).filter(v => v > 0).sort((a, b) => a - b);
