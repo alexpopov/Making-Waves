@@ -24,6 +24,7 @@ import { encodeWav, downloadBlob } from './wav-writer.js';
 import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
+import { toggleZoom } from './zoom.js';
 
 // --- DOM elements ---
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -43,6 +44,11 @@ const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement;
 const btnSaveProject = document.getElementById('btn-save-project') as HTMLButtonElement;
 const btnSaveJson = document.getElementById('btn-save-json') as HTMLButtonElement;
+const btnUndo = document.getElementById('btn-undo') as HTMLButtonElement;
+const btnRedo = document.getElementById('btn-redo') as HTMLButtonElement;
+const btnNudgeLeft = document.getElementById('btn-nudge-left') as HTMLButtonElement;
+const btnNudgeRight = document.getElementById('btn-nudge-right') as HTMLButtonElement;
+const btnZoom = document.getElementById('btn-zoom') as HTMLButtonElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -490,6 +496,62 @@ btnLoop.addEventListener('click', () => {
 btnStop.addEventListener('click', () => {
   stop();
   playheadSample = null;
+  redraw();
+});
+
+// --- Action bar ---
+btnUndo.addEventListener('click', () => {
+  const snap = undo(currentSnapshot());
+  if (snap) { restoreSnapshot(snap); debug('Undo'); }
+});
+
+btnRedo.addEventListener('click', () => {
+  const snap = redo(currentSnapshot());
+  if (snap) { restoreSnapshot(snap); debug('Redo'); }
+});
+
+function doNudge(left: boolean): void {
+  if (!slicer) return;
+
+  // Nudge pending start marker if present and no slice selected
+  if (slicer.pendingStart !== null && selectedSlice === null) {
+    const vp = getViewport();
+    const nudge = Math.max(1, Math.round((vp.end - vp.start) * 0.005));
+    const delta = left ? -nudge : nudge;
+    saveSnapshot();
+    slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, slicer.pendingStart + delta));
+    redraw();
+    return;
+  }
+
+  if (selectedSlice === null || selectedSlice >= slicer.slices.length) return;
+
+  if (selectedMarker === null) {
+    // No marker selected: left picks start, right picks end
+    setSelection(selectedSlice, left ? 'start' : 'end');
+  } else {
+    const vp = getViewport();
+    const vpLen = vp.end - vp.start;
+    const nudge = Math.max(1, Math.round(vpLen * 0.005));
+    const delta = left ? -nudge : nudge;
+    saveSnapshot();
+    const newIdx = moveMarker(slicer, selectedSlice, selectedMarker,
+      slicer.slices[selectedSlice][selectedMarker] + delta);
+    setSelection(newIdx, selectedMarker);
+  }
+}
+
+btnNudgeLeft.addEventListener('click', () => doNudge(true));
+btnNudgeRight.addEventListener('click', () => doNudge(false));
+
+btnZoom.addEventListener('click', () => {
+  if (!slicer) return;
+  toggleZoom({
+    selectedSlice,
+    selectedMarker,
+    slices: slicer.slices,
+  });
+  invalidatePeaks();
   redraw();
 });
 
