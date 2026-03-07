@@ -16,10 +16,12 @@ export interface SlicerState {
   totalSamples: number;
   /** When non-null, a slice is being created — this is its start position. */
   pendingStart: number | null;
+  /** Suggested end points shown as faded markers while a pending start is active. */
+  ghostMarkers: number[];
 }
 
 export function createSlicer(totalSamples: number): SlicerState {
-  return { slices: [], totalSamples, pendingStart: null };
+  return { slices: [], totalSamples, pendingStart: null, ghostMarkers: [] };
 }
 
 /** Begin a new slice at this sample frame. Returns true if started. */
@@ -37,6 +39,7 @@ export function endSlice(state: SlicerState, sampleFrame: number): number {
   let start = state.pendingStart;
   let end = sampleFrame;
   state.pendingStart = null;
+  state.ghostMarkers = [];
 
   // Swap if placed in reverse order
   if (start > end) [start, end] = [end, start];
@@ -53,6 +56,7 @@ export function endSlice(state: SlicerState, sampleFrame: number): number {
 /** Cancel a pending slice creation. */
 export function cancelPending(state: SlicerState): void {
   state.pendingStart = null;
+  state.ghostMarkers = [];
 }
 
 /** Remove a slice by index. */

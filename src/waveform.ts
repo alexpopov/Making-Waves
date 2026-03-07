@@ -101,6 +101,8 @@ export interface DrawOptions {
   selectedMarker: 'start' | 'end' | null;
   /** Sample position of a pending slice start (first click placed, waiting for second) */
   pendingStart: number | null;
+  /** Suggested end points from transient detection — drawn as faded dashed markers */
+  ghostMarkers: number[];
 }
 
 /**
@@ -156,7 +158,7 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart } = opts;
+  const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart, ghostMarkers } = opts;
   const triW = 10;
   const triH = 15;
 
@@ -326,6 +328,37 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.lineTo(xPending - 1 + triW, 0);
     ctx.closePath();
     ctx.fill();
+  }
+
+  // Ghost markers — suggested end points from transient detection
+  if (pendingStart !== null && ghostMarkers.length > 0) {
+    const nextColor = sliceColor(slices.length);
+    ctx.strokeStyle = hexToRgba(nextColor, 0.35);
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+
+    for (const pos of ghostMarkers) {
+      const x = sampleToX(pos);
+      if (x < -triW || x > w + triW) continue;
+
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+
+      // Inward triangle (same shape as end marker) — faded
+      ctx.fillStyle = hexToRgba(nextColor, 0.35);
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(x + 1, 0);
+      ctx.lineTo(x + 1, triH);
+      ctx.lineTo(x + 1 - triW, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.setLineDash([3, 5]);
+    }
+
+    ctx.setLineDash([]);
   }
 
   // Playhead

@@ -189,6 +189,66 @@ export function snapToZeroCrossing(
 }
 
 /**
+ * Snap a sample position to the last "dead-air" zero crossing before it.
+ *
+ * Walks backward from `position` looking for a zero crossing where the
+ * surrounding samples are also near-zero amplitude. This avoids snapping
+ * to a crossing that sits in the middle of a loud sound's decay — those
+ * are technically zero crossings but not clean cut points.
+ *
+ * @param samples          Mono sample data.
+ * @param position         Starting search position (the detected onset frame).
+ * @param windowSize       Max samples to search backward (~20 ms at 44.1 kHz → 882).
+ * @param quietRadius      How many samples around the crossing to check. Default: 8.
+ * @param quietThreshold   Max amplitude considered "near-zero". Default: 0.02.
+ * @returns                Adjusted sample position (original if nothing qualifies).
+ */
+export function snapToZeroCrossingBefore(
+  samples: Float32Array,
+  position: number,
+  windowSize = 882,
+  quietRadius = 8,
+  quietThreshold = 0.02,
+): number {
+  const pos = Math.min(Math.floor(position), samples.length - 2);
+  const stop = Math.max(quietRadius, pos - windowSize);
+
+  let firstCrossing = -1; // best plain zero crossing (fallback)
+
+  for (let i = pos; i >= stop; i--) {
+    if (samples[i] * samples[i + 1] > 0) continue; // not a zero crossing
+
+    const candidate = Math.abs(samples[i]) <= Math.abs(samples[i + 1]) ? i : i + 1;
+
+    if (firstCrossing === -1) firstCrossing = candidate; // remember for fallback
+
+    // Check that the neighbourhood is genuinely quiet (dead air, not mid-decay)
+    let quiet = true;
+    for (let j = i - quietRadius; j <= i + quietRadius + 1; j++) {
+      if (j < 0 || j >= samples.length) continue;
+      if (Math.abs(samples[j]) > quietThreshold) { quiet = false; break; }
+    }
+    if (quiet) return candidate;
+  }
+
+  // No dead-air crossing found — fall back to the nearest backward zero crossing
+  // rather than the raw unsnapped frame boundary.
+  return firstCrossing !== -1 ? firstCrossing : pos;
+}
+
+/**
+ * Snap an array of transient positions to the dead-air zero crossing before each.
+ * The windowSize should be ~20 ms in samples (e.g. Math.round(sampleRate * 0.02)).
+ */
+export function snapAllToZeroCrossingsBefore(
+  samples: Float32Array,
+  positions: number[],
+  windowSize = 882,
+): number[] {
+  return positions.map(p => snapToZeroCrossingBefore(samples, p, windowSize));
+}
+
+/**
  * Snap an array of transient positions to their nearest zero crossings.
  * Convenience wrapper around snapToZeroCrossing for bulk use.
  */

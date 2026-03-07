@@ -23,6 +23,7 @@ import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
 import { encodeWav, downloadBlob } from './wav-writer.js';
 import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
+import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
 
 // --- DOM elements ---
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -78,6 +79,7 @@ function restoreSnapshot(snap: Snapshot): void {
   if (!slicer) return;
   slicer.slices = snap.slices;
   slicer.pendingStart = snap.pendingStart;
+  slicer.ghostMarkers = [];
   selectedSlice = snap.selectedSlice;
   redraw();
   renderSliceList();
@@ -331,7 +333,9 @@ canvas.addEventListener('pointerdown', (e) => {
       return;
     }
     saveSnapshot(); // before completing slice
-    const idx = endSlice(slicer, sample);
+    const nearGhost = slicer.ghostMarkers.find(g => Math.abs(g - sample) <= toleranceSamples);
+    const endSample = nearGhost ?? sample;
+    const idx = endSlice(slicer, endSample);
     if (idx >= 0) {
       debug(`Slice #${idx + 1} created`);
       setSelection(idx, null);
@@ -343,6 +347,23 @@ canvas.addEventListener('pointerdown', (e) => {
   saveSnapshot(); // before placing start marker
   beginSlice(slicer, sample);
   debug('Slice start placed — click again to set end');
+
+  // Run transient detection forward from the pending start
+  const buf = audioBuffer; // stable reference for TypeScript narrowing
+  const channels = Array.from({ length: buf.numberOfChannels },
+    (_, c) => buf.getChannelData(c));
+  const mono = monoMix(channels);
+  const region = mono.subarray(sample);
+  const raw = detectTransients(region, buf.sampleRate, {
+    sensitivity: 1.5,
+    frameSize: 512,
+    minGapSamples: Math.round(audioBuffer.sampleRate / 8),
+  });
+  const absolute = raw.map(p => p + sample);
+  const windowSize20ms = Math.round(buf.sampleRate * 0.02);
+  const snapped = snapAllToZeroCrossingsBefore(mono, absolute, windowSize20ms);
+  slicer.ghostMarkers = snapped.slice(0, 8);
+
   redraw();
 });
 
@@ -549,6 +570,7 @@ function redraw(): void {
     selectedSlice,
     selectedMarker,
     pendingStart: slicer.pendingStart,
+    ghostMarkers: slicer.ghostMarkers,
   });
 }
 
