@@ -13,7 +13,7 @@ import { getCachedPeaks, invalidatePeaks, drawWaveform, invalidateThemeCache } f
 import { SliceList } from './slice-list.js';
 import { getViewport, resetViewport, onWheel, onPointerMove, ensureVisible } from './viewport.js';
 import {
-  createSlicer, beginSlice, endSlice,
+  createSlicer, beginSlice, endSlice, cancelPending,
   removeSlice, moveMarker, hitTestMarker, hitTestMarkerPreferSelected,
   findSliceAt,
   type SlicerState, type MarkerHit,
@@ -49,6 +49,7 @@ const btnRedo = document.getElementById('btn-redo') as HTMLButtonElement;
 const btnNudgeLeft = document.getElementById('btn-nudge-left') as HTMLButtonElement;
 const btnNudgeRight = document.getElementById('btn-nudge-right') as HTMLButtonElement;
 const btnZoom = document.getElementById('btn-zoom') as HTMLButtonElement;
+const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -543,6 +544,21 @@ function doNudge(left: boolean): void {
 
 btnNudgeLeft.addEventListener('click', () => doNudge(true));
 btnNudgeRight.addEventListener('click', () => doNudge(false));
+
+btnEsc.addEventListener('click', () => {
+  if (slicer && slicer.pendingStart !== null) {
+    saveSnapshot();
+    cancelPending(slicer);
+    debug('Pending slice cancelled');
+    redraw();
+  } else if (selectedMarker !== null) {
+    debug('Marker deselected');
+    setSelection(selectedSlice, null);
+  } else if (selectedSlice !== null) {
+    debug('Selection cleared');
+    setSelection(null, null);
+  }
+});
 
 btnZoom.addEventListener('click', () => {
   if (!slicer) return;
