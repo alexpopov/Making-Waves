@@ -49,7 +49,7 @@
 - [ ] `a` — add mode: next click always adds, bypasses hit-test
 - [ ] `g` — grab mode: drag selected marker from anywhere (Blender-style)
 - [ ] `r` — toggle loop (repeat) mode
-- [ ] `,` (comma) — rename selected segment
+- [x] `,` (comma) — rename selected segment
 - [x] `.` (period) — toggle selected marker between start/end of segment
 
 ## Cursor Feedback
@@ -58,28 +58,28 @@
 - [ ] When hovering over a selectable region in top zone: pointer cursor
 
 ## Pending Marker Behavior
-- [ ] When only one marker is placed (pending start), pressing play should play from that point
-- [ ] `h`/`l` should nudge the pending marker
-- [ ] Pending marker should be draggable
-- [ ] Only complete the slice (place end) if the second click is sufficiently far from the start
+- [x] When only one marker is placed (pending start), pressing play should play from that point
+- [x] `h`/`l` should nudge the pending marker
+- [x] Pending marker should be draggable
+- [x] Only complete the slice (place end) if the second click is sufficiently far from the start
   (close clicks should drag the pending marker instead)
 
 ## Project UI
-- [ ] Start screen with "Load WAV" and "Load Project" buttons (replaces toolbar Load WAV button)
-- [ ] Centered editable project title in toolbar (white, contenteditable)
-- [ ] Close [×] button beside title — native confirm to save or discard
-- [ ] Load project from ZIP: minimal STORE-only zip-reader.ts, restore WAV + slices
-- [ ] Show start screen on close, hide when project active
+- [x] Start screen with "Load WAV" and "Load Project" buttons (replaces toolbar Load WAV button)
+- [x] Centered editable project title in toolbar (white, contenteditable)
+- [x] Close [×] button beside title — native confirm to save or discard
+- [x] Load project from ZIP: minimal STORE-only zip-reader.ts, restore WAV + slices
+- [x] Show start screen on close, hide when project active
 
 ## Naming & Project
-- [ ] Project name (auto-generated, changeable)
+- [x] Project name (auto-generated, changeable)
 - [ ] Slice names derived from project name (e.g. `projectname_001`)
-- [ ] `,` to rename individual slices
-- [ ] Slice names shown in slice list
+- [x] `,` to rename individual slices
+- [x] Slice names shown in slice list
 
 ## Export & Persistence
 - [x] ZIP export containing: each slice WAV, sidecar JSON, original WAV
-- [x] Sidecar stores: version, original filename, sample rate, slices
+- [x] Sidecar stores: version, original filename, sample rate, slices, names
 - [ ] Save/load JSON sidecar file (`filename.slices.json`)
 - [ ] Resume from sidecar: reload slice boundaries and names
 - [ ] **Open question:** after resuming from sidecar, should renaming/reordering be locked
