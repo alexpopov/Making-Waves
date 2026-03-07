@@ -81,7 +81,10 @@ export async function buildProjectZip(
   const usedNames = new Map<string, number>();
   slices.forEach((s, i) => {
     const sliceBytes = encodeWavToUint8Array(audioBuffer, s.start, s.end);
-    const base = s.name ?? `${baseName}_${String(i + 1).padStart(3, '0')}`;
+    const rawBase = s.name ?? `${baseName}_${String(i + 1).padStart(3, '0')}`;
+    // Strip path separators and control characters so ZIP entry names are safe
+    // regardless of what the user typed. The name in the JSON sidecar is untouched.
+    const base = rawBase.replace(/[/\\]/g, '_').replace(/[\x00-\x1f\x7f]/g, '').trim() || `slice_${i + 1}`;
     const count = usedNames.get(base) ?? 0;
     usedNames.set(base, count + 1);
     const sliceName = count === 0 ? base : `${base}_${count + 1}`;
