@@ -194,6 +194,45 @@ html, body {
   cursor: crosshair;
 }
 
+/* Action bar (undo/redo, nudge, zoom) */
+#action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--accent);
+}
+
+#action-bar button {
+  width: 44px;
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+#action-bar button:active {
+  background: var(--highlight);
+}
+
+#action-bar button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#action-bar .action-spacer {
+  width: 12px;
+}
+
 /* Transport controls */
 #transport {
   display: flex;
