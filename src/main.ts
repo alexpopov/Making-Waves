@@ -696,13 +696,75 @@ function followSelection(): void {
 // --- Marker hint pill (touch only) ---
 const isTouchDevice = 'ontouchstart' in window;
 
+/**
+ * Tracks whether the "hold to drag" hint should be shown for each marker side.
+ *
+ * Rules:
+ * - Show at most twice per side (start / end) across the whole session.
+ * - Auto-hide after HINT_TIMEOUT_MS of visibility.
+ * - Once a drag is successfully completed, stop showing for that side.
+ * - Never re-show after a drag completes, even if the count hasn't reached 2.
+ */
+class MarkerHintState {
+  private showCount: Record<'start' | 'end', number> = { start: 0, end: 0 };
+  private draggedSides: Set<'start' | 'end'> = new Set();
+  private hideTimer: ReturnType<typeof setTimeout> | null = null;
+  private currentSide: 'start' | 'end' | null = null;
+  private readonly MAX_SHOWS = 2;
+  private readonly TIMEOUT_MS = 10_000;
+
+  shouldShow(side: 'start' | 'end'): boolean {
+    return !this.draggedSides.has(side) && this.showCount[side] < this.MAX_SHOWS;
+  }
+
+  /** Call when the hint becomes visible for a given side. */
+  onShown(side: 'start' | 'end', hideCallback: () => void): void {
+    if (this.currentSide === side) return; // already running for this side
+    this.clearTimer();
+    this.currentSide = side;
+    this.showCount[side]++;
+    this.hideTimer = setTimeout(() => {
+      this.hideTimer = null;
+      this.currentSide = null;
+      hideCallback();
+    }, this.TIMEOUT_MS);
+  }
+
+  /** Call when a hold-drag completes for the given side. */
+  onDragCompleted(side: 'start' | 'end'): void {
+    this.draggedSides.add(side);
+    this.clearTimer();
+    this.currentSide = null;
+  }
+
+  /** Call whenever the hint is hidden for any reason other than drag. */
+  onHidden(): void {
+    this.clearTimer();
+    this.currentSide = null;
+  }
+
+  private clearTimer(): void {
+    if (this.hideTimer !== null) {
+      clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+  }
+}
+
+const hintState = new MarkerHintState();
+
 function updateMarkerHint(): void {
   if (!isTouchDevice || !slicer || selectedSlice === null || selectedMarker === null || dragging !== null) {
+    hintState.onHidden();
     markerHint.classList.add('hidden');
     return;
   }
   const slice = slicer.slices[selectedSlice];
-  if (!slice) { markerHint.classList.add('hidden'); return; }
+  if (!slice || !hintState.shouldShow(selectedMarker)) {
+    hintState.onHidden();
+    markerHint.classList.add('hidden');
+    return;
+  }
 
   const markerSample = selectedMarker === 'start' ? slice.start : slice.end;
   const vp = getViewport();
@@ -713,8 +775,9 @@ function updateMarkerHint(): void {
   const ratio = (markerSample - vp.start) / (vp.end - vp.start);
   const markerX = (canvasRect.left - containerRect.left) + ratio * canvasRect.width;
 
-  // Clamp: hide if marker is scrolled off screen
+  // Hide if marker is scrolled off screen
   if (markerX < 0 || markerX > containerRect.width) {
+    hintState.onHidden();
     markerHint.classList.add('hidden');
     return;
   }
@@ -730,6 +793,9 @@ function updateMarkerHint(): void {
     markerHint.style.left = `${markerX + GAP}px`;
   }
   markerHint.classList.remove('hidden');
+  hintState.onShown(selectedMarker, () => {
+    markerHint.classList.add('hidden');
+  });
 }
 
 // --- Drawing ---
@@ -838,8 +904,9 @@ registerTouch(canvas, {
   },
 
   onHoldEnd() {
+    if (dragging) hintState.onDragCompleted(dragging.which);
     dragging = null;
-    updateMarkerHint();
+    // Don't re-show hint after a completed drag
   },
 });
 
