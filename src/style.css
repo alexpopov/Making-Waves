@@ -216,6 +216,7 @@ button svg {
 
 /* Cut zone (marker placement overlay on bottom of waveform) */
 #cut-zone {
+  display: none;
   position: absolute;
   bottom: 8px;        /* match waveform-container padding */
   left: 8px;
@@ -234,6 +235,35 @@ button svg {
   right: 0;
   border-top: 2px dashed var(--text-dim);
   opacity: 0.3;
+}
+
+/* Hold-to-drag hint pill — appears beside the selected marker on touch */
+#marker-hint {
+  position: absolute;
+  top: 40%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.35);
+  white-space: nowrap;
+  z-index: 2;
+}
+
+#marker-hint.hidden {
+  display: none;
+}
+
+#marker-hint svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .cut-zone-label {
@@ -513,6 +543,7 @@ button svg {
     font-size: 16px;
   }
 
+  #cut-zone     { display: block; }
   #slice-list   { order: 1; }
   #transport    { order: 2; }
   #action-bar   { order: 4; }

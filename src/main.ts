@@ -31,6 +31,7 @@ import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
 import { toggleZoom } from './zoom.js';
 import { registerTouch } from './touch.js';
+import { icons } from './icons.js';
 
 // --- DOM elements ---
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
@@ -58,6 +59,7 @@ const btnNudgeRight = document.getElementById('btn-nudge-right') as HTMLButtonEl
 const btnZoom = document.getElementById('btn-zoom') as HTMLButtonElement;
 const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
 const cutZone = document.getElementById('cut-zone') as HTMLElement;
+const markerHint = document.getElementById('marker-hint') as HTMLDivElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -664,7 +666,7 @@ function setSelection(slice: number | null, marker: 'start' | 'end' | null): voi
   selectedSlice = slice;
   selectedMarker = marker;
   followSelection();
-  redraw();
+  redraw(); // also calls updateMarkerHint
   renderSliceList();
 }
 
@@ -681,6 +683,45 @@ function followSelection(): void {
     ensureVisible(s.start, s.end);
   }
   invalidatePeaks(); // viewport may have changed
+}
+
+// --- Marker hint pill (touch only) ---
+const isTouchDevice = 'ontouchstart' in window;
+
+function updateMarkerHint(): void {
+  if (!isTouchDevice || !slicer || selectedSlice === null || selectedMarker === null || dragging !== null) {
+    markerHint.classList.add('hidden');
+    return;
+  }
+  const slice = slicer.slices[selectedSlice];
+  if (!slice) { markerHint.classList.add('hidden'); return; }
+
+  const markerSample = selectedMarker === 'start' ? slice.start : slice.end;
+  const vp = getViewport();
+  const containerRect = (canvas.parentElement as HTMLElement).getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+
+  // X position of the marker line relative to the container
+  const ratio = (markerSample - vp.start) / (vp.end - vp.start);
+  const markerX = (canvasRect.left - containerRect.left) + ratio * canvasRect.width;
+
+  // Clamp: hide if marker is scrolled off screen
+  if (markerX < 0 || markerX > containerRect.width) {
+    markerHint.classList.add('hidden');
+    return;
+  }
+
+  const GAP = 8;
+  if (selectedMarker === 'start') {
+    markerHint.innerHTML = `${icons.chevronLeft} hold to drag`;
+    markerHint.style.left = 'auto';
+    markerHint.style.right = `${containerRect.width - markerX + GAP}px`;
+  } else {
+    markerHint.innerHTML = `${icons.chevronRight} hold to drag`;
+    markerHint.style.right = 'auto';
+    markerHint.style.left = `${markerX + GAP}px`;
+  }
+  markerHint.classList.remove('hidden');
 }
 
 // --- Drawing ---
@@ -702,6 +743,7 @@ function redraw(): void {
     pendingStart: slicer.pendingStart,
     ghostMarkers: slicer.ghostMarkers,
   });
+  updateMarkerHint();
 }
 
 window.addEventListener('resize', () => {
@@ -769,6 +811,7 @@ registerTouch(canvas, {
     if (Math.abs(markerSample - sample) > toleranceSamples) return false;
     saveSnapshot();
     dragging = { sliceIndex: selectedSlice, which: selectedMarker };
+    markerHint.classList.add('hidden');
     return true;
   },
 
@@ -788,6 +831,7 @@ registerTouch(canvas, {
 
   onHoldEnd() {
     dragging = null;
+    updateMarkerHint();
   },
 });
 
