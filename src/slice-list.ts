@@ -167,8 +167,6 @@ export class SliceList {
     this.renamingIndex = i;
     nameSpan.textContent = currentName;
     nameSpan.setAttribute('contenteditable', 'true');
-    nameSpan.style.outline = '1px solid currentColor';
-    nameSpan.style.cursor = 'text';
     nameSpan.focus();
 
     // Select all text so the user can immediately type a replacement
@@ -183,8 +181,6 @@ export class SliceList {
       if (settled) return;
       settled = true;
       nameSpan.setAttribute('contenteditable', 'false');
-      nameSpan.style.outline = '';
-      nameSpan.style.cursor = '';
       this.renamingIndex = null;
       onCommit(nameSpan.textContent?.trim() ?? '');
     };
@@ -193,8 +189,6 @@ export class SliceList {
       if (settled) return;
       settled = true;
       nameSpan.setAttribute('contenteditable', 'false');
-      nameSpan.style.outline = '';
-      nameSpan.style.cursor = '';
       this.renamingIndex = null;
       onCancel();
     };

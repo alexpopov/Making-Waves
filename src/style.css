@@ -113,16 +113,22 @@ html, body {
   max-width: 50vw;
   text-align: center;
   outline: none;
-  border-bottom: 1px solid transparent;
-  padding: 2px 6px;
-  border-radius: 4px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(0,0,0,0.35);
+  border-top: 1px solid rgba(0,0,0,0.5);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-left: 1px solid rgba(0,0,0,0.35);
+  border-right: 1px solid rgba(0,0,0,0.35);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.45);
   cursor: default;
+  transition: background 0.15s, box-shadow 0.15s;
 }
 
 #project-title[contenteditable="true"] {
-  border-bottom-color: var(--highlight);
+  background: rgba(0,0,0,0.45);
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.6), 0 0 0 2px var(--highlight);
   cursor: text;
-  background: rgba(255,255,255,0.05);
 }
 
 /* Close project button */
@@ -366,6 +372,30 @@ html, body {
 
 #slices li.selected {
   background: var(--accent);
+}
+
+/* Slice name pill — visible affordance that it's editable */
+.slice-label {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  margin-right: 6px;
+}
+
+.slice-label:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.slice-label[contenteditable="true"] {
+  background: rgba(255,255,255,0.13);
+  border-color: var(--highlight);
+  cursor: text;
+  outline: none;
 }
 
 #slices li button {
