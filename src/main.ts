@@ -25,7 +25,7 @@ import {
 } from './slicer.js';
 import { registerKeyboard } from './keyboard.js';
 import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
-import { encodeWav, downloadBlob } from './wav-writer.js';
+import { encodeWav, downloadBlob, requestSaveHandle, writeBlobTo } from './wav-writer.js';
 import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
@@ -613,27 +613,39 @@ btnZoom.addEventListener('click', () => {
 });
 
 // --- Save ---
+
+// saveProject is split in two so the picker is shown before the heavy async
+// work — the browser's user-gesture token expires after the first await.
 async function saveProject(): Promise<void> {
   if (!slicer || !audioBuffer || !originalFile) return;
   const baseName = projectName || originalFile.name.replace(/\.wav$/i, '');
+
+  // 1. Request handle NOW while gesture is still active
+  const handle = await requestSaveHandle(`${baseName}.zip`, 'application/zip');
+
+  // 2. Build the ZIP (gesture may have expired — that's fine)
   const zip = await buildProjectZip(slicer.slices, audioBuffer, originalFile, baseName);
-  downloadBlob(zip, `${baseName}.zip`);
+
+  // 3. Write
+  if (handle) await writeBlobTo(handle, zip);
+  else downloadBlob(zip, `${baseName}.zip`);
 }
 
 btnSaveProject.addEventListener('click', () => {
   saveProject().catch(err => console.error('[making-waves] Save error:', err));
 });
 
-btnSaveJson.addEventListener('click', () => {
+btnSaveJson.addEventListener('click', async () => {
   if (!slicer || !audioBuffer) return;
   const baseName = projectName || 'slices';
-  const blob = buildSidecarJson(
-    slicer.slices,
-    audioBuffer,
-    originalFile?.name ?? `${baseName}.wav`,
-    baseName,
-  );
-  downloadBlob(blob, `${baseName}.waves.json`);
+  const filename = `${baseName}.waves.json`;
+
+  // buildSidecarJson is synchronous so the gesture is still active here
+  const handle = await requestSaveHandle(filename, 'application/json');
+  const blob = buildSidecarJson(slicer.slices, audioBuffer, originalFile?.name ?? `${baseName}.wav`, baseName);
+
+  if (handle) await writeBlobTo(handle, blob);
+  else downloadBlob(blob, filename);
 });
 
 // --- Playback callbacks ---
@@ -775,11 +787,15 @@ const sliceList = new SliceList(slicesUl, {
       : selectedSlice;
     setSelection(next, null);
   },
-  exportSlice(i) {
+  async exportSlice(i) {
     if (!audioBuffer || !slicer) return;
     const baseName = projectName || 'slice';
+    const filename = `${baseName}_${String(i + 1).padStart(3, '0')}.wav`;
+    // encodeWav is synchronous — gesture still active when we request the handle
+    const handle = await requestSaveHandle(filename, 'audio/wav');
     const blob = encodeWav(audioBuffer, slicer.slices[i].start, slicer.slices[i].end);
-    downloadBlob(blob, `${baseName}_${String(i + 1).padStart(3, '0')}.wav`);
+    if (handle) await writeBlobTo(handle, blob);
+    else downloadBlob(blob, filename);
   },
   renameSlice(i) {
     doRenameSlice(i);

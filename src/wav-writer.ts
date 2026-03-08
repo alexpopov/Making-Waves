@@ -7,6 +7,20 @@
  *   data chunk  (8 + N bytes) — raw PCM samples
  */
 
+// File System Access API — not yet in TypeScript's lib
+interface FilePickerAcceptType {
+  description?: string;
+  accept: Record<string, string[]>;
+}
+declare global {
+  interface Window {
+    showSaveFilePicker(options?: {
+      suggestedName?: string;
+      types?: FilePickerAcceptType[];
+    }): Promise<FileSystemFileHandle>;
+  }
+}
+
 export interface WavOptions {
   sampleRate: number;
   numChannels: number;
@@ -98,7 +112,41 @@ function writeString(view: DataView, offset: number, str: string): void {
 }
 
 /**
- * Trigger a file download in the browser.
+ * Show the OS save-file picker and return a writable handle.
+ *
+ * MUST be called while a user gesture is still active — before any
+ * await that would expire the gesture token. Returns null if the
+ * browser doesn't support the API or the user cancels.
+ */
+export async function requestSaveHandle(
+  suggestedName: string,
+  mimeType: string,
+): Promise<FileSystemFileHandle | null> {
+  if (!('showSaveFilePicker' in window)) return null;
+  const ext = suggestedName.split('.').pop() ?? '';
+  try {
+    return await window.showSaveFilePicker({
+      suggestedName,
+      types: ext ? [{ description: ext.toUpperCase() + ' file', accept: { [mimeType]: ['.' + ext] } }] : [],
+    });
+  } catch (e) {
+    if ((e as DOMException).name !== 'AbortError') {
+      console.warn('[making-waves] showSaveFilePicker error:', e);
+    }
+    return null;
+  }
+}
+
+/** Write a Blob to a FileSystemFileHandle obtained from requestSaveHandle. */
+export async function writeBlobTo(handle: FileSystemFileHandle, blob: Blob): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+}
+
+/**
+ * Fallback download — triggers browser save to the default Downloads folder.
+ * Use this when the File System Access API is unavailable.
  */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
