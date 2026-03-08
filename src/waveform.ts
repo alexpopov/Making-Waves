@@ -103,6 +103,8 @@ export interface DrawOptions {
   pendingStart: number | null;
   /** Suggested end points from transient detection — drawn as faded dashed markers */
   ghostMarkers: number[];
+  /** When true, triangles and the selected-slice handle panel are drawn at the bottom */
+  markersAtBottom?: boolean;
 }
 
 /**
@@ -158,9 +160,12 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart, ghostMarkers } = opts;
+  const { peaks, slices, viewport, playheadSample, selectedSlice, selectedMarker, pendingStart, ghostMarkers, markersAtBottom } = opts;
   const triW = 10;
   const triH = 15;
+  // Triangle base y and direction: top (default) or bottom (mobile layout)
+  const triBase = markersAtBottom ? h : 0;
+  const triDir  = markersAtBottom ? -1 : 1;   // tip offset direction from base
 
   // Read theme colors from CSS custom properties
   const style = getComputedStyle(canvas);
@@ -220,10 +225,12 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Selected slice: solid "panel" in the grab zone with underglow
     if (isSelected) {
       // Semi-transparent panel over background
+      const panelY = markersAtBottom ? waveBottom : 0;
+      const panelH = markersAtBottom ? (h - waveBottom) : selectLineY;
       ctx.fillStyle = themeBg;
-      ctx.fillRect(x1, 0, x2 - x1, selectLineY);
+      ctx.fillRect(x1, panelY, x2 - x1, panelH);
       ctx.fillStyle = hexToRgba(color, 0.45);
-      ctx.fillRect(x1, 0, x2 - x1, selectLineY);
+      ctx.fillRect(x1, panelY, x2 - x1, panelH);
 
     }
   }
@@ -275,9 +282,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Start triangle: points RIGHT (inward toward slice content) ▷
     ctx.fillStyle = startActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xStart - 1, 0);
-    ctx.lineTo(xStart - 1, triH);
-    ctx.lineTo(xStart - 1 + triW, 0);
+    ctx.moveTo(xStart - 1, triBase);
+    ctx.lineTo(xStart - 1, triBase + triDir * triH);
+    ctx.lineTo(xStart - 1 + triW, triBase);
     ctx.closePath();
     ctx.fill();
 
@@ -292,9 +299,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // End triangle: points LEFT (inward toward slice content) ◁
     ctx.fillStyle = endActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xEnd + 1, 0);
-    ctx.lineTo(xEnd + 1, triH);
-    ctx.lineTo(xEnd + 1 - triW, 0);
+    ctx.moveTo(xEnd + 1, triBase);
+    ctx.lineTo(xEnd + 1, triBase + triDir * triH);
+    ctx.lineTo(xEnd + 1 - triW, triBase);
     ctx.closePath();
     ctx.fill();
   }
@@ -316,9 +323,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Inward triangle
     ctx.fillStyle = nextColor;
     ctx.beginPath();
-    ctx.moveTo(xPending - 1, 0);
-    ctx.lineTo(xPending - 1, triH);
-    ctx.lineTo(xPending - 1 + triW, 0);
+    ctx.moveTo(xPending - 1, triBase);
+    ctx.lineTo(xPending - 1, triBase + triDir * triH);
+    ctx.lineTo(xPending - 1 + triW, triBase);
     ctx.closePath();
     ctx.fill();
   }
@@ -343,9 +350,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
       ctx.fillStyle = hexToRgba(nextColor, 0.35);
       ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.moveTo(x + 1, 0);
-      ctx.lineTo(x + 1, triH);
-      ctx.lineTo(x + 1 - triW, 0);
+      ctx.moveTo(x + 1, triBase);
+      ctx.lineTo(x + 1, triBase + triDir * triH);
+      ctx.lineTo(x + 1 - triW, triBase);
       ctx.closePath();
       ctx.fill();
       ctx.setLineDash([3, 5]);

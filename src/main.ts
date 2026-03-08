@@ -859,6 +859,7 @@ function redraw(): void {
     selectedMarker,
     pendingStart: slicer.pendingStart,
     ghostMarkers: slicer.ghostMarkers,
+    markersAtBottom: window.matchMedia('(max-width: 600px)').matches,
   });
   updateMarkerHint();
 }
