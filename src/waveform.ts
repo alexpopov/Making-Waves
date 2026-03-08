@@ -207,7 +207,12 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.moveTo(0, selectLineY);
     ctx.lineTo(w, selectLineY);
   }
+  // Bottom boundary (cut zone line) — identical style to top
+  ctx.beginPath();
+  ctx.moveTo(0, waveBottom);
+  ctx.lineTo(w, waveBottom);
   ctx.stroke();
+
   ctx.setLineDash([]);
 
   // Draw colored tint bands for each slice (overlapping slices stack additively)

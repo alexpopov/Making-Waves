@@ -237,14 +237,6 @@ button svg {
   z-index: 1;
 }
 
-#cut-zone::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  border-top: 1px dashed var(--wave-select-line);
-}
 
 /* Hold-to-drag hint pill — appears beside the selected marker on touch */
 #marker-hint {
