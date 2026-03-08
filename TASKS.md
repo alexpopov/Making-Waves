@@ -155,6 +155,12 @@ For now, we start with the simpler single-tap model and add confirmation later._
   (44×36px), settings popover `top: 48px` assumption, title `calc(100vw - 130px)`.
   Fix those three simultaneously when doing the conversion.
 
+## Mobile UX
+- [ ] Reconsider marker triangle + handle panel placement on mobile: `markersAtBottom`
+  flag exists in `DrawOptions` and `main.ts` (currently hardcoded `false`). Flip to
+  `window.matchMedia('(max-width: 600px)').matches` when the interaction model
+  (cut zone at bottom, thumb reach) is settled.
+
 ## Milestone 5 — Polish & Export
 - [ ] Per-slice gain/fade (non-destructive)
 - [ ] Batch normalize slices

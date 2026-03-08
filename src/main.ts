@@ -859,7 +859,8 @@ function redraw(): void {
     selectedMarker,
     pendingStart: slicer.pendingStart,
     ghostMarkers: slicer.ghostMarkers,
-    markersAtBottom: window.matchMedia('(max-width: 600px)').matches,
+    // TODO: reconsider putting markers at the bottom on mobile for thumb reach
+    markersAtBottom: false,
   });
   updateMarkerHint();
 }
