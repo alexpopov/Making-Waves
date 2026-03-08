@@ -752,6 +752,43 @@ registerTouch(canvas, {
     // Tap on empty space → deselect
     setSelection(null, null);
   },
+
+  onHoldStart(clientX, _clientY): boolean {
+    // Only drag if there's already a selected marker to grab
+    if (!slicer || !audioBuffer || selectedSlice === null || selectedMarker === null) return false;
+    const rect = canvas.getBoundingClientRect();
+    const vp = getViewport();
+    const sample = pixelToSample(canvas, clientX, vp);
+    const vpLen = vp.end - vp.start;
+    // Generous fat-finger tolerance (~30px)
+    const toleranceSamples = (30 / rect.width) * vpLen;
+    // Only claim if the touch is near the selected marker specifically
+    const slice = slicer.slices[selectedSlice];
+    if (!slice) return false;
+    const markerSample = selectedMarker === 'start' ? slice.start : slice.end;
+    if (Math.abs(markerSample - sample) > toleranceSamples) return false;
+    saveSnapshot();
+    dragging = { sliceIndex: selectedSlice, which: selectedMarker };
+    return true;
+  },
+
+  onHoldMove(clientX) {
+    if (!dragging || !slicer) return;
+    const sample = pixelToSample(canvas, clientX, getViewport());
+    if (dragging.sliceIndex === -1) {
+      slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, sample));
+    } else {
+      const newIdx = moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
+      dragging = { ...dragging, sliceIndex: newIdx };
+      selectedSlice = newIdx;
+    }
+    redraw();
+    renderSliceList();
+  },
+
+  onHoldEnd() {
+    dragging = null;
+  },
 });
 
 // --- Slice list ---

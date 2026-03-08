@@ -3,6 +3,7 @@
  *
  * Single-finger drag = horizontal pan.
  * Two-finger pinch = zoom (around midpoint).
+ * Single-finger hold (400ms, < 15px movement) = marker drag.
  *
  * Uses touch events (not pointer events) because we need
  * simultaneous multi-touch tracking for pinch detection.
@@ -13,6 +14,10 @@ import { pixelToSample } from './coords.js';
 
 /** Max displacement (px) from touchstart to touchend to count as a tap. */
 const TAP_THRESHOLD_PX = 10;
+/** Hold duration (ms) before a stationary touch triggers hold-drag. */
+const HOLD_MS = 250;
+/** Horizontal movement (px) that cancels the hold timer (panning intent). */
+const HOLD_CANCEL_PX = 15;
 
 export interface TouchCallbacks {
   /** Called after any pan/zoom so the host can invalidate peaks and redraw. */
@@ -22,6 +27,15 @@ export interface TouchCallbacks {
    * The host can use this to trigger selection hit-tests.
    */
   onTap?: (clientX: number, clientY: number) => void;
+  /**
+   * Called after HOLD_MS if the finger hasn't moved much.
+   * Return true to claim the touch as a marker drag (suppresses further pan).
+   */
+  onHoldStart?: (clientX: number, clientY: number) => boolean;
+  /** Called during a hold-drag on each touchmove. */
+  onHoldMove?: (clientX: number) => void;
+  /** Called when a hold-drag ends (touchend or touchcancel). */
+  onHoldEnd?: () => void;
 }
 
 interface TouchState {
@@ -35,6 +49,20 @@ interface TouchState {
   prevPinchDist: number | null;
   /** Midpoint sample at pinch start (zoom anchor) */
   pinchAnchorSample: number | null;
+  /** Long-press timer handle */
+  holdTimer: ReturnType<typeof setTimeout> | null;
+  /** True once onHoldStart returned true — suppresses pan */
+  holdDragging: boolean;
+  /** Most recent single-finger position (used by hold timer callback) */
+  lastX: number;
+  lastY: number;
+}
+
+function clearHold(state: TouchState): void {
+  if (state.holdTimer !== null) {
+    clearTimeout(state.holdTimer);
+    state.holdTimer = null;
+  }
 }
 
 export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): void {
@@ -44,6 +72,10 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
     prevTouches: [],
     prevPinchDist: null,
     pinchAnchorSample: null,
+    holdTimer: null,
+    holdDragging: false,
+    lastX: 0,
+    lastY: 0,
   };
 
   canvas.addEventListener('touchstart', (e) => {
@@ -55,6 +87,7 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
     state.prevTouches = extractTouches(e);
 
     if (e.touches.length === 2) {
+      clearHold(state);
       state.prevPinchDist = touchDistance(e);
       // Capture zoom anchor as sample at midpoint of the two fingers
       const mid = touchMidpointX(e);
@@ -62,6 +95,21 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
     } else {
       state.prevPinchDist = null;
       state.pinchAnchorSample = null;
+
+      if (e.touches.length === 1) {
+        state.lastX = e.touches[0].clientX;
+        state.lastY = e.touches[0].clientY;
+
+        // Start hold timer
+        if (cb.onHoldStart) {
+          state.holdTimer = setTimeout(() => {
+            state.holdTimer = null;
+            if (cb.onHoldStart!(state.lastX, state.lastY)) {
+              state.holdDragging = true;
+            }
+          }, HOLD_MS);
+        }
+      }
     }
   }, { passive: false });
 
@@ -93,11 +141,30 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
       state.prevTouches = extractTouches(e);
       cb.onViewportChanged();
     } else if (e.touches.length === 1) {
+      const cur = e.touches[0];
+      state.lastX = cur.clientX;
+      state.lastY = cur.clientY;
+
+      // --- Hold-drag mode: delegate to host instead of panning ---
+      if (state.holdDragging) {
+        cb.onHoldMove?.(cur.clientX);
+        state.prevTouches = extractTouches(e);
+        return;
+      }
+
+      // Cancel hold timer if finger has moved too far horizontally (panning intent)
+      if (state.holdTimer) {
+        const start = state.startTouches[0];
+        const dx = Math.abs(cur.clientX - (start?.x ?? cur.clientX));
+        if (dx > HOLD_CANCEL_PX) {
+          clearHold(state);
+        }
+      }
+
       // --- Single finger pan ---
       const prev = state.prevTouches[0];
       if (!prev) { state.prevTouches = extractTouches(e); return; }
 
-      const cur = e.touches[0];
       const dx = prev.x - cur.clientX; // positive = dragged left = pan right
       if (Math.abs(dx) > 0.5) {
         const vp = getViewport();
@@ -113,6 +180,15 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
 
   canvas.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
+      clearHold(state);
+
+      if (state.holdDragging) {
+        state.holdDragging = false;
+        cb.onHoldEnd?.();
+        state.active = false;
+        return; // don't fire onTap
+      }
+
       // Detect tap: single finger lifted with small total displacement
       if (
         state.startTouches.length === 1 &&
@@ -132,6 +208,7 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
       state.pinchAnchorSample = null;
     } else if (e.touches.length === 1) {
       // Went from 2 fingers to 1 — reset to single-finger pan
+      clearHold(state);
       state.prevTouches = extractTouches(e);
       state.prevPinchDist = null;
       state.pinchAnchorSample = null;
@@ -139,6 +216,11 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
   });
 
   canvas.addEventListener('touchcancel', () => {
+    clearHold(state);
+    if (state.holdDragging) {
+      state.holdDragging = false;
+      cb.onHoldEnd?.();
+    }
     state.active = false;
     state.prevPinchDist = null;
     state.pinchAnchorSample = null;
