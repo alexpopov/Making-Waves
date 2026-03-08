@@ -594,8 +594,8 @@ function doNudge(left: boolean): void {
   }
 }
 
-btnNudgeLeft.addEventListener('click', () => doNudge(true));
-btnNudgeRight.addEventListener('click', () => doNudge(false));
+withRepeat(btnNudgeLeft,  () => doNudge(true));
+withRepeat(btnNudgeRight, () => doNudge(false));
 
 btnEsc.addEventListener('click', () => {
   if (slicer && slicer.pendingStart !== null) {
@@ -699,6 +699,36 @@ function followSelection(): void {
     ensureVisible(s.start, s.end);
   }
   invalidatePeaks(); // viewport may have changed
+}
+
+/**
+ * Wire a button to fire an action immediately on press, then repeatedly
+ * after a short delay — like keyboard key-repeat.
+ * Also prevents the browser's text-selection / callout behaviour on long press.
+ */
+function withRepeat(btn: HTMLButtonElement, action: () => void): void {
+  const DELAY_MS    = 350;
+  const INTERVAL_MS = 80;
+  let delayTimer: ReturnType<typeof setTimeout>   | null = null;
+  let repeatTimer: ReturnType<typeof setInterval> | null = null;
+
+  const cancel = () => {
+    if (delayTimer  !== null) { clearTimeout(delayTimer);   delayTimer  = null; }
+    if (repeatTimer !== null) { clearInterval(repeatTimer); repeatTimer = null; }
+  };
+
+  btn.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); // block text selection & iOS callout
+    btn.setPointerCapture(e.pointerId);
+    action();
+    delayTimer = setTimeout(() => {
+      delayTimer  = null;
+      repeatTimer = setInterval(action, INTERVAL_MS);
+    }, DELAY_MS);
+  });
+
+  btn.addEventListener('pointerup',     cancel);
+  btn.addEventListener('pointercancel', cancel);
 }
 
 /** Keep the loop window in sync with the slice while dragging during looped playback. */

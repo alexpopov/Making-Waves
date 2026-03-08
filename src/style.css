@@ -63,6 +63,16 @@ html, body {
   height: 100%;
 }
 
+/* Prevent text selection and iOS long-press callout on interactive elements */
+button,
+.cut-zone-label,
+#marker-hint,
+.slice-label {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* Heroicon sizing — all buttons use inline SVGs */
 button svg {
   width: 20px;
