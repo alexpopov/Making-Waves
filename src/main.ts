@@ -30,6 +30,7 @@ import { registerTouch } from './touch.js';
 // --- DOM elements ---
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const projectInput = document.getElementById('project-input') as HTMLInputElement;
+const titleGroup = document.getElementById('title-group') as HTMLElement;
 const projectTitleEl = document.getElementById('project-title') as HTMLSpanElement;
 const btnClose = document.getElementById('btn-close') as HTMLButtonElement;
 const startScreen = document.getElementById('start-screen') as HTMLElement;
@@ -184,8 +185,7 @@ function showEditor(): void {
   startScreen.classList.add('hidden');
   editor.classList.remove('hidden');
   projectTitleEl.textContent = projectName;
-  projectTitleEl.classList.remove('hidden');
-  btnClose.classList.remove('hidden');
+  titleGroup.classList.remove('hidden');
 }
 
 /** Reset to start screen */
@@ -202,10 +202,9 @@ function closeProject(): void {
   clearHistory();
   editor.classList.add('hidden');
   startScreen.classList.remove('hidden');
-  projectTitleEl.classList.add('hidden');
+  titleGroup.classList.add('hidden');
   projectTitleEl.textContent = '';
   projectTitleEl.setAttribute('contenteditable', 'false');
-  btnClose.classList.add('hidden');
 }
 
 // --- Load project from ZIP ---

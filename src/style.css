@@ -71,6 +71,21 @@ html, body {
   padding: 10px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--accent);
+  position: relative;
+}
+
+/* Title + close button group — absolutely centered */
+#title-group {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#title-group.hidden {
+  display: none;
 }
 
 #toolbar button {
@@ -110,10 +125,6 @@ html, body {
   background: rgba(255,255,255,0.05);
 }
 
-#project-title.hidden {
-  display: none;
-}
-
 /* Close project button */
 #btn-close {
   background: none;
@@ -131,9 +142,6 @@ html, body {
   background: rgba(255,255,255,0.08);
 }
 
-#btn-close.hidden {
-  display: none;
-}
 
 /* Start screen */
 #start-screen {
