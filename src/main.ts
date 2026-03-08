@@ -58,6 +58,7 @@ const btnNudgeLeft = document.getElementById('btn-nudge-left') as HTMLButtonElem
 const btnNudgeRight = document.getElementById('btn-nudge-right') as HTMLButtonElement;
 const btnZoom = document.getElementById('btn-zoom') as HTMLButtonElement;
 const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
+const btnDeleteSlice = document.getElementById('btn-delete-slice') as HTMLButtonElement;
 const cutZone = document.getElementById('cut-zone') as HTMLElement;
 const markerHint = document.getElementById('marker-hint') as HTMLDivElement;
 
@@ -603,6 +604,13 @@ btnEsc.addEventListener('click', () => {
   }
 });
 
+btnDeleteSlice.addEventListener('click', () => {
+  if (!slicer || selectedSlice === null) return;
+  saveSnapshot();
+  removeSlice(slicer, selectedSlice);
+  setSelection(null, null);
+});
+
 btnZoom.addEventListener('click', () => {
   if (!slicer) return;
   toggleZoom({
@@ -886,6 +894,7 @@ const sliceList = new SliceList(slicesUl, {
 function renderSliceList(): void {
   if (!slicer || !audioBuffer) return;
   sliceList.render(slicer.slices, audioBuffer.sampleRate, selectedSlice);
+  btnDeleteSlice.disabled = selectedSlice === null;
   debouncedSaveMeta();
 }
 
