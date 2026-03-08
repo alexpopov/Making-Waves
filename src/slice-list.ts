@@ -75,8 +75,6 @@ export class SliceList {
     if (i === this.renamingIndex) return;
 
     li.className = isSelected ? 'selected' : '';
-    li.style.borderLeft = `3px solid ${sliceColor(i)}`;
-    li.style.paddingLeft = '8px';
 
     li.innerHTML = '';
 
@@ -87,6 +85,9 @@ export class SliceList {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'slice-label';
     nameSpan.textContent = slice.name ?? `#${i + 1}`;
+    const color = sliceColor(i);
+    nameSpan.style.borderLeftColor = color;
+    nameSpan.style.borderRightColor = color;
 
     // Double-click on desktop, single tap on touch to rename
     nameSpan.addEventListener('dblclick', (e) => {

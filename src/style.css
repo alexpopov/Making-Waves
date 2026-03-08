@@ -377,14 +377,14 @@ html, body {
 /* Slice name segment — matches timeline segment visual language */
 .slice-label {
   display: inline-block;
-  padding: 2px 9px;
+  padding: 4px 12px;
   border-radius: 3px;
   background: rgba(255,255,255,0.07);
   border-top: 1px solid rgba(255,255,255,0.08);
   border-bottom: 1px solid rgba(255,255,255,0.05);
   border-left: 2px solid rgba(255,255,255,0.28);
   border-right: 2px solid rgba(255,255,255,0.28);
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   transition: background 0.15s;
   margin-right: 6px;
@@ -396,8 +396,6 @@ html, body {
 
 .slice-label[contenteditable="true"] {
   background: rgba(255,255,255,0.11);
-  border-left-color: var(--highlight);
-  border-right-color: var(--highlight);
   cursor: text;
   outline: none;
 }
