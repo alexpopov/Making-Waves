@@ -513,7 +513,11 @@ button svg {
     font-size: 16px;
   }
 
+  #slice-list   { order: 1; }
+  #transport    { order: 2; }
+  #action-bar   { order: 4; }
   #waveform-container {
+    order: 3;
     flex: none;
     height: 35vh;
   }
