@@ -8,6 +8,7 @@
 
 import { sliceColor } from './waveform.js';
 import type { Slice } from './slicer.js';
+import { icons } from './icons.js';
 
 export interface SliceListContext {
   setSelection(i: number | null, marker: null): void;
@@ -113,7 +114,8 @@ export class SliceList {
     const btnGroup = document.createElement('span');
 
     const playBtn = document.createElement('button');
-    playBtn.textContent = '▶';
+    playBtn.innerHTML = icons.play;
+    playBtn.title = 'Play';
     playBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.ctx.setSelection(i, null);
@@ -121,14 +123,16 @@ export class SliceList {
     });
 
     const exportBtn = document.createElement('button');
-    exportBtn.textContent = '⬇';
+    exportBtn.innerHTML = icons.arrowDownTray;
+    exportBtn.title = 'Export WAV';
     exportBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.ctx.exportSlice(i);
     });
 
     const delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
+    delBtn.innerHTML = icons.trash;
+    delBtn.title = 'Delete';
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.ctx.saveSnapshot();

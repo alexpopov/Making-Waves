@@ -63,6 +63,13 @@ html, body {
   height: 100%;
 }
 
+/* Heroicon sizing — all buttons use inline SVGs */
+button svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
 /* Toolbar */
 #toolbar {
   display: flex;
@@ -229,12 +236,14 @@ html, body {
   opacity: 0.3;
 }
 
-#cut-zone::after {
-  content: '\2702\FE0E  tap to place marker';
+.cut-zone-label {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
   color: rgba(255,255,255,0.7);
   font-size: 11px;
   letter-spacing: 0.5px;
@@ -242,6 +251,13 @@ html, body {
   padding: 2px 10px;
   border-radius: 4px;
   background: rgba(0,0,0,0.35);
+  white-space: nowrap;
+}
+
+.cut-zone-label svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 /* Action bar (undo/redo, nudge, zoom) */
@@ -279,10 +295,6 @@ html, body {
   cursor: default;
 }
 
-#btn-esc {
-  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-}
 
 #action-bar .action-spacer {
   width: 12px;
