@@ -24,7 +24,7 @@ import {
   type SlicerState, type MarkerHit,
 } from './slicer.js';
 import { registerKeyboard } from './keyboard.js';
-import { playRegion, stop, setCallbacks, getPlaybackState } from './player.js';
+import { playRegion, stop, setCallbacks, getPlaybackState, updateLoopBounds } from './player.js';
 import { encodeWav, downloadBlob, requestSaveHandle, writeBlobTo } from './wav-writer.js';
 import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
@@ -447,6 +447,7 @@ canvas.addEventListener('pointermove', (e) => {
   const newIdx = moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
   dragging = { ...dragging, sliceIndex: newIdx };
   selectedSlice = newIdx;
+  syncLoopBounds(slicer.slices[newIdx]);
   redraw();
   renderSliceList();
 });
@@ -588,6 +589,7 @@ function doNudge(left: boolean): void {
     saveSnapshot();
     const newIdx = moveMarker(slicer, selectedSlice, selectedMarker,
       slicer.slices[selectedSlice][selectedMarker] + delta);
+    syncLoopBounds(slicer.slices[newIdx]);
     setSelection(newIdx, selectedMarker);
   }
 }
@@ -697,6 +699,11 @@ function followSelection(): void {
     ensureVisible(s.start, s.end);
   }
   invalidatePeaks(); // viewport may have changed
+}
+
+/** Keep the loop window in sync with the slice while dragging during looped playback. */
+function syncLoopBounds(slice: { start: number; end: number } | undefined): void {
+  if (slice) updateLoopBounds(slice.start, slice.end);
 }
 
 // --- Marker hint pill (touch only) ---
@@ -912,6 +919,7 @@ registerTouch(canvas, {
       const newIdx = moveMarker(slicer, dragging.sliceIndex, dragging.which, sample);
       dragging = { ...dragging, sliceIndex: newIdx };
       selectedSlice = newIdx;
+      syncLoopBounds(slicer.slices[newIdx]);
     }
     redraw();
     renderSliceList();

@@ -170,3 +170,17 @@ export function toggleLoop(): boolean {
   state.isLooping = !state.isLooping;
   return state.isLooping;
 }
+
+/**
+ * Update the loop window while playback is running.
+ * loopStart/loopEnd are live attributes on AudioBufferSourceNode —
+ * they take effect immediately without restarting the source.
+ */
+export function updateLoopBounds(startSample: number, endSample: number): void {
+  if (!source || !state.isLooping || !currentBuffer) return;
+  const sr = currentBuffer.sampleRate;
+  source.loopStart = startSample / sr;
+  source.loopEnd   = endSample   / sr;
+  state.startSample = startSample;
+  state.endSample   = endSample;
+}
