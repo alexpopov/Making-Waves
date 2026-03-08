@@ -57,6 +57,9 @@ export function cloneSnapshot(s: Snapshot): Snapshot {
   };
 }
 
+export const canUndo = (): boolean => undoStack.length > 0;
+export const canRedo = (): boolean => redoStack.length > 0;
+
 /** Reset both stacks (e.g. when loading a new file). */
 export function clearHistory(): void {
   undoStack.length = 0;

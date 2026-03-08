@@ -27,7 +27,7 @@ import { registerKeyboard } from './keyboard.js';
 import { playRegion, stop, setCallbacks, getPlaybackState, updateLoopBounds } from './player.js';
 import { encodeWav, downloadBlob, requestSaveHandle, writeBlobTo } from './wav-writer.js';
 import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
-import { pushUndo, undo, redo, cloneSnapshot, clearHistory, type Snapshot } from './undo.js';
+import { pushUndo, undo, redo, cloneSnapshot, clearHistory, canUndo, canRedo, type Snapshot } from './undo.js';
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
 import { toggleZoom } from './zoom.js';
 import { registerTouch } from './touch.js';
@@ -76,6 +76,11 @@ let isLooping = false;
 let projectName = '';
 
 // --- Undo/redo helpers ---
+function updateUndoRedoButtons(): void {
+  btnUndo.disabled = !canUndo();
+  btnRedo.disabled = !canRedo();
+}
+
 function saveSnapshot(): void {
   if (!slicer) return;
   pushUndo(cloneSnapshot({
@@ -83,6 +88,7 @@ function saveSnapshot(): void {
     pendingStart: slicer.pendingStart,
     selectedSlice,
   }));
+  updateUndoRedoButtons();
 }
 
 function currentSnapshot(): Snapshot {
@@ -101,6 +107,7 @@ function restoreSnapshot(snap: Snapshot): void {
   selectedSlice = snap.selectedSlice;
   redraw();
   renderSliceList();
+  updateUndoRedoButtons();
 }
 
 // --- File loading ---
@@ -162,6 +169,7 @@ function openSession(
   selectedMarker = null;
   invalidatePeaks();
   clearHistory();
+  updateUndoRedoButtons();
   resetViewport(buffer.length);
   showEditor();
 
@@ -211,6 +219,7 @@ function closeProject(): void {
   playheadSample = null;
   projectName = '';
   clearHistory();
+  updateUndoRedoButtons();
   editor.classList.add('hidden');
   startScreen.classList.remove('hidden');
   titleGroup.classList.add('hidden');
