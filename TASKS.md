@@ -85,8 +85,55 @@
 - [ ] **Open question:** after resuming from sidecar, should renaming/reordering be locked
   to avoid confusion? Or allow it with a warning?
 
-## Milestone 2 — Usable Editor
-- [ ] Pinch-zoom on mobile
+## Milestone 2 — iOS / Mobile (portrait-first)
+
+### Touch Gesture System
+- [ ] Detect touch vs mouse (use `pointerType` or touch event count)
+- [ ] Single-finger drag to pan horizontally on waveform canvas
+- [ ] Two-finger pinch to zoom (replace wheel-based zoom on touch)
+- [ ] Decouple waveform canvas zones: on touch, entire waveform area is pan/zoom only
+  (no marker placement from tapping the waveform on mobile)
+- [ ] Prevent iOS Safari bounce/refresh on overscroll (`touch-action`, `overscroll-behavior`)
+
+### Cut Zone (marker placement for touch)
+- [ ] Bottom ~20% band below waveform with visual "cut here" affordance
+  (dotted line + scissors icon repeating)
+- [ ] Tap in cut zone to place marker at the corresponding sample position
+- [ ] Cut zone scrolls/zooms in sync with the waveform viewport
+- [ ] Same two-tap flow: first tap = start marker, second tap = end marker
+
+### Action Toolbar (above transport bar)
+- [ ] Undo button (↩) — calls existing undo logic
+- [ ] Redo button (↪) — calls existing redo logic
+- [ ] Zoom toggle button — cycles: zoom-to-fit → zoom-to-segment → zoom-to-marker → zoom-out
+  Icon changes to reflect current state (magnifying glass +/−)
+- [ ] Nudge left button (◀) — nudges selected marker left (same as `h`/ArrowLeft)
+- [ ] Nudge right button (▶) — nudges selected marker right (same as `l`/ArrowRight)
+- [ ] These buttons also work on desktop (visible always, supplements keyboard shortcuts)
+
+### Portrait Layout
+- [ ] Responsive CSS: on narrow screens (max-width ~600px), waveform takes ~35-40% height
+  instead of flex:1 (much smaller wave, more room for controls and slice list)
+- [ ] Stack toolbars vertically: action toolbar → transport → slice list
+- [ ] Touch-sized buttons (min 44×44px tap targets per Apple HIG)
+- [ ] Slice list scrollable below transport
+
+### Draggable Pending Marker (desktop + mobile)
+- [ ] Pending start marker is draggable on desktop (already works via pointer events)
+- [ ] Arrow keys / nudge buttons work on pending marker (already works for keys)
+- [ ] On mobile: drag pending marker in the cut zone, or nudge with toolbar buttons
+
+### Future: Ghost Marker Confirmation Flow
+_Idea: on iOS, a newly placed marker starts as a "ghost" (semi-transparent).
+You can zoom in on it, drag it to refine position, then tap a confirm button
+to commit it. This lets you precisely place even the first marker on a phone.
+For now, we start with the simpler single-tap model and add confirmation later._
+- [ ] Ghost marker state (unconfirmed) with visual distinction
+- [ ] Confirm button appears when ghost marker is active
+- [ ] Cancel/undo ghost marker
+- [ ] Works for both start and end markers independently
+
+## Milestone 2b — Usable Editor
 - [ ] Support co-located markers (one slice's end on another's start)
 - [x] Undo/redo stack
 
@@ -94,7 +141,6 @@
 - [ ] IndexedDB auto-save (hash-based WAV key)
 - [ ] PWA manifest + service worker
 - [ ] Offline support (cache static assets)
-- [ ] Improved mobile layout
 
 ## Milestone 4 — Auto-Slicing
 - [ ] Full auto-slice: detect all transients and create slices automatically
