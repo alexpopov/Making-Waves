@@ -1,8 +1,13 @@
 /**
- * Playback engine using AudioBufferSourceNode → AnalyserNode → destination.
+ * Playback engine: AudioBufferSourceNode → masterGain → destination.
  *
  * Tracks playhead position via AudioContext.currentTime for
  * sample-accurate cursor rendering.
+ *
+ * Note: AnalyserNode was removed from the inline audio path because
+ * Safari buffers it through its FFT window, adding 300-500ms of
+ * audible latency. If we need visualisation in the future, tap the
+ * signal on a parallel branch, not inline.
  */
 
 import { getAudioContext, ensureResumedSync } from './audio.js';
@@ -19,7 +24,7 @@ export interface PlaybackState {
 }
 
 let source: AudioBufferSourceNode | null = null;
-let analyser: AnalyserNode | null = null;
+let masterGain: GainNode | null = null;
 let animFrameId: number | null = null;
 let currentBuffer: AudioBuffer | null = null;
 
@@ -42,8 +47,14 @@ export function getPlaybackState(): Readonly<PlaybackState> {
   return state;
 }
 
-export function getAnalyser(): AnalyserNode | null {
-  return analyser;
+/** Set master volume (0 = silent, 1 = unity). */
+export function setMasterVolume(value: number): void {
+  const ac = getAudioContext();
+  if (!masterGain) {
+    masterGain = ac.createGain();
+    masterGain.connect(ac.destination);
+  }
+  masterGain.gain.setTargetAtTime(value, ac.currentTime, 0.01);
 }
 
 export function setCallbacks(playhead: PlayheadCallback, stop: StopCallback): void {
@@ -66,17 +77,15 @@ export function playRegion(
   const ac = ensureResumedSync();
   currentBuffer = buffer;
 
-  // Create AnalyserNode for real-time visualization
-  if (!analyser) {
-    analyser = ac.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.connect(ac.destination);
+  // Lazy-init master gain (persists across plays)
+  if (!masterGain) {
+    masterGain = ac.createGain();
+    masterGain.connect(ac.destination);
   }
 
-  // Create source
   source = ac.createBufferSource();
   source.buffer = buffer;
-  source.connect(analyser);
+  source.connect(masterGain);
 
   const startSeconds = startSample / buffer.sampleRate;
   const duration = (endSample - startSample) / buffer.sampleRate;
@@ -87,13 +96,16 @@ export function playRegion(
     source.loopEnd = startSeconds + duration;
   }
 
-  source.start(0, startSeconds, loop ? undefined : duration);
+  // Small lookahead (5ms) gives the audio render thread time to
+  // schedule the buffer before the next hardware callback.
+  const when = ac.currentTime + 0.005;
+  source.start(when, startSeconds, loop ? undefined : duration);
 
   state.isPlaying = true;
   state.isLooping = loop;
   state.startSample = startSample;
   state.endSample = endSample;
-  state.startedAt = ac.currentTime;
+  state.startedAt = when;
 
   source.onended = () => {
     if (state.isPlaying) {

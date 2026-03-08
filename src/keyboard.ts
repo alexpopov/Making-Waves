@@ -66,7 +66,6 @@ export function registerKeyboard(ctx: KeyboardContext): void {
           const s = slicer.slices[selectedSlice];
           playRegion(audioBuffer, s.start, s.end, ctx.isLooping());
         } else if (audioBuffer && slicer && slicer.pendingStart !== null) {
-          // Play from pending start to end of file so you can hear where you are
           playRegion(audioBuffer, slicer.pendingStart, slicer.totalSamples, false);
         }
       }
