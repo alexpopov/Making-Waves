@@ -534,7 +534,13 @@ btnLoop.addEventListener('click', () => {
 
   const ps = getPlaybackState();
   if (ps.isPlaying && audioBuffer) {
-    playRegion(audioBuffer, ps.startSample, ps.endSample, isLooping);
+    if (isLooping) {
+      // Enabling loop: restart the region from the top so the full loop plays
+      playRegion(audioBuffer, ps.startSample, ps.endSample, true);
+    } else {
+      // Disabling loop: continue from current position and play to end once
+      playRegion(audioBuffer, ps.currentSample, ps.endSample, false);
+    }
   }
 });
 
