@@ -455,6 +455,14 @@ button svg {
   background: var(--highlight);
 }
 
+#slices li.selected button {
+  background: rgba(0,0,0,0.25);
+}
+
+#slices li.selected button:active {
+  background: var(--highlight);
+}
+
 /* Drop zone overlay */
 #drop-zone {
   position: fixed;
