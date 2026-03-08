@@ -198,17 +198,8 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
   }
 
   ctx.beginPath();
-  if (selX1 >= 0) {
-    ctx.moveTo(0, selectLineY);
-    ctx.lineTo(Math.max(0, selX1), selectLineY);
-    ctx.moveTo(Math.min(w, selX2), selectLineY);
-    ctx.lineTo(w, selectLineY);
-  } else {
-    ctx.moveTo(0, selectLineY);
-    ctx.lineTo(w, selectLineY);
-  }
-  ctx.moveTo(0, waveBottom);
-  ctx.lineTo(w, waveBottom);
+  addZoneLine(ctx, w, selectLineY, selX1, selX2);
+  addZoneLine(ctx, w, waveBottom);
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -372,6 +363,29 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     ctx.moveTo(px, 0);
     ctx.lineTo(px, h);
     ctx.stroke();
+  }
+}
+
+/**
+ * Add a full-width horizontal dashed line at `y` to the current path.
+ * Optional gapX1/gapX2 split the line into two segments (used for the
+ * top selection-zone line which skips over the selected slice's panel).
+ */
+function addZoneLine(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  y: number,
+  gapX1 = -1,
+  gapX2 = -1,
+): void {
+  if (gapX1 >= 0) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(Math.max(0, gapX1), y);
+    ctx.moveTo(Math.min(w, gapX2), y);
+    ctx.lineTo(w, y);
+  } else {
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
   }
 }
 
