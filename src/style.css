@@ -276,6 +276,11 @@ html, body {
   cursor: default;
 }
 
+#btn-esc {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
 #action-bar .action-spacer {
   width: 12px;
 }

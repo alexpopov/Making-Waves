@@ -15,6 +15,7 @@ export interface SliceListContext {
   playSlice(start: number, end: number): void;
   removeSlice(i: number): void;
   exportSlice(i: number): void;
+  renameSlice(i: number): void;
 }
 
 export class SliceList {
@@ -90,6 +91,19 @@ export class SliceList {
     const nameSpan = document.createElement('span');
     nameSpan.className = 'slice-label';
     nameSpan.textContent = slice.name ?? `#${i + 1}`;
+
+    // Double-click on desktop, single tap on touch to rename
+    nameSpan.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      this.ctx.renameSlice(i);
+    });
+    nameSpan.addEventListener('click', (e) => {
+      if ((e as PointerEvent).pointerType === 'touch' ||
+          'ontouchstart' in window) {
+        e.stopPropagation();
+        this.ctx.renameSlice(i);
+      }
+    });
 
     const timesSpan = document.createElement('span');
     timesSpan.textContent = `  ${startSec}s – ${endSec}s  (${durSec}s)`;

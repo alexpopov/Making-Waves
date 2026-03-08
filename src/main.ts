@@ -247,15 +247,23 @@ btnClose.addEventListener('click', async () => {
 });
 
 // --- Editable project title ---
-projectTitleEl.addEventListener('dblclick', () => {
+function startTitleEdit(): void {
   projectTitleEl.setAttribute('contenteditable', 'true');
   projectTitleEl.focus();
-  // Select all text
   const range = document.createRange();
   range.selectNodeContents(projectTitleEl);
   const sel = window.getSelection();
   sel?.removeAllRanges();
   sel?.addRange(range);
+}
+
+// Double-click on desktop, single tap on touch
+projectTitleEl.addEventListener('dblclick', startTitleEdit);
+projectTitleEl.addEventListener('click', (e) => {
+  if ((e as PointerEvent).pointerType === 'touch' ||
+      'ontouchstart' in window) {
+    startTitleEdit();
+  }
 });
 
 projectTitleEl.addEventListener('blur', () => {
@@ -495,22 +503,7 @@ registerKeyboard({
   invalidatePeaks,
   redraw,
   startRename() {
-    if (selectedSlice === null || !slicer || selectedSlice >= slicer.slices.length) return;
-    const i = selectedSlice;
-    const currentName = slicer.slices[i].name ?? '';
-    sliceList.startRename(
-      i,
-      currentName,
-      (newName) => {
-        if (!slicer) return;
-        if (newName !== currentName) {
-          saveSnapshot();
-          slicer.slices[i].name = newName || undefined;
-        }
-        renderSliceList();
-      },
-      () => renderSliceList(),
-    );
+    if (selectedSlice !== null) doRenameSlice(selectedSlice);
   },
 });
 
@@ -714,6 +707,24 @@ registerTouch(canvas, {
 });
 
 // --- Slice list ---
+function doRenameSlice(i: number): void {
+  if (!slicer || i >= slicer.slices.length) return;
+  const currentName = slicer.slices[i].name ?? '';
+  sliceList.startRename(
+    i,
+    currentName,
+    (newName) => {
+      if (!slicer) return;
+      if (newName !== currentName) {
+        saveSnapshot();
+        slicer.slices[i].name = newName || undefined;
+      }
+      renderSliceList();
+    },
+    () => renderSliceList(),
+  );
+}
+
 const sliceList = new SliceList(slicesUl, {
   setSelection: (i, marker) => setSelection(i, marker),
   saveSnapshot,
@@ -733,6 +744,9 @@ const sliceList = new SliceList(slicesUl, {
     const baseName = projectName || 'slice';
     const blob = encodeWav(audioBuffer, slicer.slices[i].start, slicer.slices[i].end);
     downloadBlob(blob, `${baseName}_${String(i + 1).padStart(3, '0')}.wav`);
+  },
+  renameSlice(i) {
+    doRenameSlice(i);
   },
 });
 
