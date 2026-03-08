@@ -81,7 +81,7 @@ html, body {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
 }
 
 #title-group.hidden {
