@@ -820,6 +820,14 @@ function redraw(): void {
   updateMarkerHint();
 }
 
+// Prevent double-tap zoom on iOS (which ignores user-scalable=no since iOS 10)
+let lastTouchEndMs = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEndMs < 300) e.preventDefault();
+  lastTouchEndMs = now;
+}, { passive: false });
+
 window.addEventListener('resize', () => {
   invalidatePeaks();
   redraw();
