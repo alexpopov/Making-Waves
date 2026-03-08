@@ -6,7 +6,12 @@
  */
 
 import { debug } from './debug.js';
-import { decodeAudioFile } from './audio.js';
+import { decodeAudioFile, decodeAudioData } from './audio.js';
+import {
+  saveBufferToIDB, loadBufferFromIDB,
+  saveMetaToLS, loadMetaFromLS,
+  clearSession,
+} from './persistence.js';
 import { pixelToSample } from './coords.js';
 import { SELECT_ZONE } from './constants.js';
 import { getCachedPeaks, invalidatePeaks, drawWaveform, invalidateThemeCache } from './waveform.js';
@@ -173,6 +178,8 @@ async function loadFile(file: File): Promise<void> {
       duration: buffer.duration.toFixed(2) + 's',
       samples: buffer.length,
     });
+    // Save raw WAV bytes to IDB once — the file never changes after upload
+    file.arrayBuffer().then(ab => saveBufferToIDB(ab)).catch(() => {/* quota */ });
     openSession(buffer, file, file.name.replace(/\.wav$/i, ''));
   } catch (err) {
     console.error('[making-waves] Load error:', err);
@@ -190,6 +197,7 @@ function showEditor(): void {
 
 /** Reset to start screen */
 function closeProject(): void {
+  clearSession(); // wipe autosave so next launch shows start screen
   stop();
   audioBuffer = null;
   originalFile = null;
@@ -274,6 +282,7 @@ projectTitleEl.addEventListener('blur', () => {
   } else {
     projectTitleEl.textContent = projectName;
   }
+  debouncedSaveMeta();
 });
 
 projectTitleEl.addEventListener('keydown', (e) => {
@@ -780,4 +789,56 @@ const sliceList = new SliceList(slicesUl, {
 function renderSliceList(): void {
   if (!slicer || !audioBuffer) return;
   sliceList.render(slicer.slices, audioBuffer.sampleRate, selectedSlice);
+  debouncedSaveMeta();
 }
+
+// --- Auto-save ---
+
+function debounce(fn: () => void, ms: number): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(fn, ms);
+  };
+}
+
+function saveMeta(): void {
+  if (!slicer || !originalFile) return;
+  saveMetaToLS({
+    version: 1,
+    projectName,
+    originalFileName: originalFile.name,
+    slices: slicer.slices,
+    savedAt: Date.now(),
+  });
+}
+
+// Debounced: coalesces rapid changes (marker drags, etc.) into one write
+const debouncedSaveMeta = debounce(saveMeta, 100);
+
+// Flush immediately when the user leaves — catches any in-flight debounce
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden') return;
+  saveMeta();
+});
+
+// --- Restore session on startup ---
+(async () => {
+  const meta = loadMetaFromLS();
+  if (!meta) return;
+
+  const rawWav = await loadBufferFromIDB();
+  if (!rawWav) return;
+
+  try {
+    // Re-decode from the stored raw WAV bytes — never stores decoded PCM
+    const buffer = await decodeAudioData(rawWav.slice(0));
+    const file = new File([rawWav], meta.originalFileName, { type: 'audio/wav' });
+    openSession(buffer, file, meta.projectName, meta.slices);
+    debug(`Session restored: "${meta.projectName}", ${meta.slices.length} slices`);
+  } catch (err) {
+    // Corrupted data — clear and start fresh
+    console.error('[making-waves] Session restore failed:', err);
+    clearSession();
+  }
+})();

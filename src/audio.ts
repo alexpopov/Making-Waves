@@ -71,3 +71,12 @@ export async function decodeAudioFile(file: File): Promise<AudioBuffer> {
   const arrayBuffer = await file.arrayBuffer();
   return ac.decodeAudioData(arrayBuffer);
 }
+
+/**
+ * Decode a raw WAV ArrayBuffer into an AudioBuffer.
+ * Used when restoring a session from IndexedDB (no File object needed).
+ */
+export async function decodeAudioData(arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
+  const ac = await ensureResumed();
+  return ac.decodeAudioData(arrayBuffer);
+}
