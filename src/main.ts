@@ -704,6 +704,33 @@ registerTouch(canvas, {
     invalidatePeaks();
     redraw();
   },
+  onTap(clientX, _clientY) {
+    if (!slicer || !audioBuffer) return;
+
+    const vp = getViewport();
+    const rect = canvas.getBoundingClientRect();
+    const sample = pixelToSample(canvas, clientX, vp);
+    const vpLen = vp.end - vp.start;
+    // Use a larger tolerance for touch (finger is less precise than mouse)
+    const toleranceSamples = (20 / rect.width) * vpLen;
+
+    // Tap near a marker → select that slice + marker (enables nudge buttons)
+    const hit = hitTestMarkerPreferSelected(slicer, sample, toleranceSamples, selectedSlice);
+    if (hit) {
+      setSelection(hit.sliceIndex, hit.which);
+      return;
+    }
+
+    // Tap inside a slice region → select the segment
+    const sliceIdx = findSliceAt(slicer, sample);
+    if (sliceIdx >= 0) {
+      setSelection(sliceIdx, null);
+      return;
+    }
+
+    // Tap on empty space → deselect
+    setSelection(null, null);
+  },
 });
 
 // --- Slice list ---

@@ -11,18 +11,26 @@
 import { panBy, zoomAt, getViewport } from './viewport.js';
 import { pixelToSample } from './coords.js';
 
+/** Max displacement (px) from touchstart to touchend to count as a tap. */
+const TAP_THRESHOLD_PX = 10;
+
 export interface TouchCallbacks {
   /** Called after any pan/zoom so the host can invalidate peaks and redraw. */
   onViewportChanged(): void;
+  /**
+   * Called when a single-finger touch ends with little movement (a tap).
+   * The host can use this to trigger selection hit-tests.
+   */
+  onTap?: (clientX: number, clientY: number) => void;
 }
 
 interface TouchState {
   /** Are we currently in a gesture? */
   active: boolean;
-  /** Starting touch positions (clientX) for each finger */
-  startTouches: { id: number; x: number }[];
+  /** Starting touch positions for each finger */
+  startTouches: { id: number; x: number; y: number }[];
   /** Previous frame positions for delta computation */
-  prevTouches: { id: number; x: number }[];
+  prevTouches: { id: number; x: number; y: number }[];
   /** Distance between two fingers last frame (for pinch) */
   prevPinchDist: number | null;
   /** Midpoint sample at pinch start (zoom anchor) */
@@ -105,6 +113,20 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
 
   canvas.addEventListener('touchend', (e) => {
     if (e.touches.length === 0) {
+      // Detect tap: single finger lifted with small total displacement
+      if (
+        state.startTouches.length === 1 &&
+        e.changedTouches.length === 1 &&
+        cb.onTap
+      ) {
+        const start = state.startTouches[0];
+        const end = e.changedTouches[0];
+        const dx = end.clientX - start.x;
+        const dy = end.clientY - start.y;
+        if (Math.sqrt(dx * dx + dy * dy) < TAP_THRESHOLD_PX) {
+          cb.onTap(end.clientX, end.clientY);
+        }
+      }
       state.active = false;
       state.prevPinchDist = null;
       state.pinchAnchorSample = null;
@@ -125,10 +147,10 @@ export function registerTouch(canvas: HTMLCanvasElement, cb: TouchCallbacks): vo
 
 // --- Helpers ---
 
-function extractTouches(e: TouchEvent): { id: number; x: number }[] {
-  const result: { id: number; x: number }[] = [];
+function extractTouches(e: TouchEvent): { id: number; x: number; y: number }[] {
+  const result: { id: number; x: number; y: number }[] = [];
   for (let i = 0; i < e.touches.length; i++) {
-    result.push({ id: e.touches[i].identifier, x: e.touches[i].clientX });
+    result.push({ id: e.touches[i].identifier, x: e.touches[i].clientX, y: e.touches[i].clientY });
   }
   return result;
 }
