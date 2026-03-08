@@ -196,25 +196,26 @@ html, body {
   cursor: crosshair;
 }
 
-/* Cut zone (marker placement for touch) */
+/* Cut zone (marker placement overlay on bottom of waveform) */
 #cut-zone {
+  position: absolute;
+  bottom: 8px;        /* match waveform-container padding */
+  left: 8px;
+  right: 8px;
   height: 60px;
-  flex-shrink: 0;
-  position: relative;
   cursor: crosshair;
-  background: var(--surface);
-  margin: 0 8px;
   touch-action: none;
+  z-index: 1;
 }
 
 #cut-zone::before {
   content: '';
   position: absolute;
-  top: 50%;
+  top: 0;
   left: 0;
   right: 0;
   border-top: 2px dashed var(--text-dim);
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 #cut-zone::after {
@@ -227,9 +228,8 @@ html, body {
   font-size: 11px;
   letter-spacing: 0.5px;
   pointer-events: none;
-  background: var(--surface);
   padding: 0 10px;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 /* Action bar (undo/redo, nudge, zoom) */
@@ -461,10 +461,6 @@ html, body {
   #waveform-container {
     flex: none;
     height: 35vh;
-  }
-
-  #cut-zone {
-    height: 48px;
   }
 
   #action-bar button {
