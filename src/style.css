@@ -430,3 +430,63 @@ html, body {
   outline: none;
   border-color: var(--highlight);
 }
+
+/* --- Portrait / narrow screen layout --- */
+@media (max-width: 600px) {
+  #toolbar {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  #toolbar button {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  #project-title {
+    max-width: 40vw;
+    font-size: 14px;
+  }
+
+  #start-buttons {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #start-buttons button {
+    padding: 16px 32px;
+    font-size: 16px;
+  }
+
+  #waveform-container {
+    flex: none;
+    height: 35vh;
+  }
+
+  #cut-zone {
+    height: 48px;
+  }
+
+  #action-bar button {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+
+  #transport {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  #transport button {
+    padding: 10px 16px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  #slice-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+}
