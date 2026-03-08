@@ -152,3 +152,4 @@ For now, we start with the simpler single-tap model and add confirmation later._
 ## Milestone 5 — Polish & Export
 - [ ] Per-slice gain/fade (non-destructive)
 - [ ] Batch normalize slices
+- [ ] Test + verify native save dialog (showSaveFilePicker) on iOS Safari
