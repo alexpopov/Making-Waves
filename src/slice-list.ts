@@ -107,6 +107,8 @@ export class SliceList {
 
     const timesSpan = document.createElement('span');
     timesSpan.textContent = `  ${startSec}s – ${endSec}s  (${durSec}s)`;
+    timesSpan.style.color = 'var(--text-dim)';
+    timesSpan.style.fontSize = '11px';
 
     info.appendChild(nameSpan);
     info.appendChild(timesSpan);
