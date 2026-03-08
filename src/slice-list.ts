@@ -80,10 +80,6 @@ export class SliceList {
 
     li.innerHTML = '';
 
-    const startSec = (slice.start / sampleRate).toFixed(2);
-    const endSec = (slice.end / sampleRate).toFixed(2);
-    const durSec = ((slice.end - slice.start) / sampleRate).toFixed(2);
-
     const info = document.createElement('span');
     info.style.cursor = 'pointer';
     info.addEventListener('click', () => this.ctx.setSelection(i, null));
@@ -106,7 +102,7 @@ export class SliceList {
     });
 
     const timesSpan = document.createElement('span');
-    timesSpan.textContent = `  ${startSec}s – ${endSec}s  (${durSec}s)`;
+    timesSpan.textContent = `  ${fmtTime(slice.start / sampleRate)} – ${fmtTime(slice.end / sampleRate)}  (${fmtTime((slice.end - slice.start) / sampleRate)})`;
     timesSpan.style.color = 'var(--text-dim)';
     timesSpan.style.fontSize = '11px';
 
@@ -205,8 +201,17 @@ export class SliceList {
   }
 
   private clearRows(): void {
+
     while (this.rows.length > 0) {
       this.ul.removeChild(this.rows.pop()!);
     }
   }
+}
+
+/** Format seconds as "ss.xx" or "m:ss.xx" when >= 60s. */
+function fmtTime(sec: number): string {
+  if (sec < 60) return `${sec.toFixed(2)}s`;
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(2).padStart(5, '0');
+  return `${m}:${s}`;
 }
