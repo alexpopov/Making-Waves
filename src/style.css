@@ -230,7 +230,7 @@ html, body {
 }
 
 #cut-zone::after {
-  content: '\2702  tap to place marker';
+  content: '\2702\FE0E  tap to place marker';
   position: absolute;
   top: 50%;
   left: 50%;
