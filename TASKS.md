@@ -149,6 +149,12 @@ For now, we start with the simpler single-tap model and add confirmation later._
 - [ ] Web Worker for heavy DSP (keep UI responsive)
 - [ ] Slice refinement: merge/split adjacent slices
 
+## Accessibility
+- [ ] Convert all `px` font sizes to `rem` so the UI respects the user's system font
+  preference (Dynamic Type on iOS). **Will break:** action bar fixed-size buttons
+  (44×36px), settings popover `top: 48px` assumption, title `calc(100vw - 130px)`.
+  Fix those three simultaneously when doing the conversion.
+
 ## Milestone 5 — Polish & Export
 - [ ] Per-slice gain/fade (non-destructive)
 - [ ] Batch normalize slices
