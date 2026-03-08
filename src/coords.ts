@@ -13,11 +13,12 @@ export interface Viewport {
 }
 
 /**
- * Convert a pixel X position on the canvas to a sample frame,
+ * Convert a pixel X position on an element to a sample frame,
  * accounting for the current viewport (zoom/scroll state).
+ * Works with any element (canvas, div, etc.) via getBoundingClientRect.
  */
-export function pixelToSample(canvas: HTMLCanvasElement, x: number, viewport: Viewport): number {
-  const rect = canvas.getBoundingClientRect();
+export function pixelToSample(el: HTMLElement, x: number, viewport: Viewport): number {
+  const rect = el.getBoundingClientRect();
   const ratio = (x - rect.left) / rect.width;
   const sample = viewport.start + ratio * (viewport.end - viewport.start);
   return Math.round(Math.max(0, sample));

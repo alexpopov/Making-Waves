@@ -51,6 +51,7 @@ const btnNudgeLeft = document.getElementById('btn-nudge-left') as HTMLButtonElem
 const btnNudgeRight = document.getElementById('btn-nudge-right') as HTMLButtonElement;
 const btnZoom = document.getElementById('btn-zoom') as HTMLButtonElement;
 const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
+const cutZone = document.getElementById('cut-zone') as HTMLElement;
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -292,6 +293,22 @@ themeSelect.addEventListener('change', () => {
   renderSliceList();
 });
 
+// --- Ghost marker detection helper ---
+function detectGhosts(sl: SlicerState, buf: AudioBuffer, fromSample: number): void {
+  const channels = Array.from({ length: buf.numberOfChannels },
+    (_, c) => buf.getChannelData(c));
+  const mono = monoMix(channels);
+  const region = mono.subarray(fromSample);
+  const raw = detectTransients(region, buf.sampleRate, {
+    sensitivity: 1.5,
+    frameSize: 512,
+  });
+  const absolute = raw.map(p => p + fromSample);
+  const windowSize20ms = Math.round(buf.sampleRate * 0.02);
+  const snapped = snapAllToZeroCrossingsBefore(mono, absolute, windowSize20ms);
+  sl.ghostMarkers = snapped.slice(0, 8);
+}
+
 // --- Waveform interaction (pointer events) ---
 
 canvas.addEventListener('pointerdown', (e) => {
@@ -358,22 +375,7 @@ canvas.addEventListener('pointerdown', (e) => {
   saveSnapshot(); // before placing start marker
   beginSlice(slicer, sample);
   debug('Slice start placed — click again to set end');
-
-  // Run transient detection forward from the pending start
-  const buf = audioBuffer; // stable reference for TypeScript narrowing
-  const channels = Array.from({ length: buf.numberOfChannels },
-    (_, c) => buf.getChannelData(c));
-  const mono = monoMix(channels);
-  const region = mono.subarray(sample);
-  const raw = detectTransients(region, buf.sampleRate, {
-    sensitivity: 1.5,
-    frameSize: 512,
-  });
-  const absolute = raw.map(p => p + sample);
-  const windowSize20ms = Math.round(buf.sampleRate * 0.02);
-  const snapped = snapAllToZeroCrossingsBefore(mono, absolute, windowSize20ms);
-  slicer.ghostMarkers = snapped.slice(0, 8);
-
+  detectGhosts(slicer, audioBuffer, sample);
   redraw();
 });
 
@@ -433,6 +435,38 @@ canvas.addEventListener('pointerup', () => {
   // (already selected in pointerdown, so just clean up)
   pendingDrag = null;
   dragging = null;
+});
+
+// --- Cut zone (marker placement for touch + mouse) ---
+cutZone.addEventListener('pointerdown', (e) => {
+  if (!slicer || !audioBuffer) return;
+
+  const vp = getViewport();
+  const sample = pixelToSample(cutZone, e.clientX, vp);
+
+  // If pending start exists, complete the slice
+  if (slicer.pendingStart !== null) {
+    const rect = cutZone.getBoundingClientRect();
+    const vpLen = vp.end - vp.start;
+    const toleranceSamples = (12 / rect.width) * vpLen;
+    const nearGhost = slicer.ghostMarkers.find(g => Math.abs(g - sample) <= toleranceSamples);
+    const endSample = nearGhost ?? sample;
+    saveSnapshot();
+    const idx = endSlice(slicer, endSample);
+    if (idx >= 0) {
+      debug(`Slice #${idx + 1} created via cut zone`);
+      setSelection(idx, null);
+    }
+    redraw();
+    return;
+  }
+
+  // Begin a new slice
+  saveSnapshot();
+  beginSlice(slicer, sample);
+  debug('Slice start placed via cut zone');
+  detectGhosts(slicer, audioBuffer, sample);
+  redraw();
 });
 
 // --- Keyboard shortcuts ---
