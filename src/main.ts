@@ -99,12 +99,14 @@ btnLoadWav.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => {
   const file = fileInput.files?.[0];
   if (file) loadFile(file);
+  fileInput.value = '';  // reset so re-selecting the same file triggers change
 });
 
 btnLoadProject.addEventListener('click', () => projectInput.click());
 projectInput.addEventListener('change', () => {
   const file = projectInput.files?.[0];
   if (file) loadProject(file).catch(err => console.error('[making-waves] Unhandled project load error:', err));
+  projectInput.value = '';  // reset so re-selecting the same file triggers change
 });
 
 // Drag-and-drop
