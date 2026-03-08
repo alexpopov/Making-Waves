@@ -7,6 +7,20 @@
  * Eagerly resumes on user gestures so iOS Safari doesn't block audio.
  */
 
+// AudioSession API (iOS 17+) — not yet in TypeScript's lib
+declare global {
+  interface Navigator {
+    audioSession?: { type: string };
+  }
+}
+
+// Tell iOS to route audio through the Media channel (like Spotify/YouTube)
+// rather than the default Ambient channel. Must be set before AudioContext
+// is created. No-ops silently on browsers that don't support it.
+if (navigator.audioSession) {
+  navigator.audioSession.type = 'playback';
+}
+
 let ctx: AudioContext | null = null;
 
 export function getAudioContext(): AudioContext {
