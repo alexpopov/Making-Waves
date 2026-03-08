@@ -231,7 +231,7 @@ button svg {
   bottom: 8px;        /* match waveform-container padding */
   left: 8px;
   right: 8px;
-  height: 60px;
+  height: 10%;
   cursor: crosshair;
   touch-action: none;
   z-index: 1;
@@ -243,8 +243,7 @@ button svg {
   top: 0;
   left: 0;
   right: 0;
-  border-top: 2px dashed var(--text-dim);
-  opacity: 0.3;
+  border-top: 1px dashed var(--wave-select-line);
 }
 
 /* Hold-to-drag hint pill — appears beside the selected marker on touch */
