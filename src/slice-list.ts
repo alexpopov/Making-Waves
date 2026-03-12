@@ -80,7 +80,7 @@ export class SliceList {
     li.innerHTML = '';
 
     const info = document.createElement('span');
-    info.style.cursor = 'pointer';
+    info.className = 'slice-info';
     info.addEventListener('click', () => this.ctx.setSelection(i, null));
 
     const nameSpan = document.createElement('span');
@@ -112,6 +112,7 @@ export class SliceList {
     info.appendChild(timesSpan);
 
     const btnGroup = document.createElement('span');
+    btnGroup.className = 'slice-btns';
 
     const playBtn = document.createElement('button');
     playBtn.innerHTML = icons.play;

@@ -404,6 +404,22 @@ button svg {
   padding: 6px 8px;
   border-radius: 4px;
   font-size: 13px;
+  gap: 6px;
+}
+
+.slice-info {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.slice-btns {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 #slices li:hover {
@@ -428,6 +444,10 @@ button svg {
   cursor: pointer;
   transition: background 0.15s;
   margin-right: 6px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .slice-label:hover {
