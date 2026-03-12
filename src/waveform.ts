@@ -282,9 +282,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Start triangle: points RIGHT (inward toward slice content) ▷
     ctx.fillStyle = startActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xStart - 1, triBase);
-    ctx.lineTo(xStart - 1, triBase + triDir * triH);
-    ctx.lineTo(xStart - 1 + triW, triBase);
+    ctx.moveTo(xStart, triBase);
+    ctx.lineTo(xStart, triBase + triDir * triH);
+    ctx.lineTo(xStart + triW, triBase);
     ctx.closePath();
     ctx.fill();
 
@@ -299,9 +299,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // End triangle: points LEFT (inward toward slice content) ◁
     ctx.fillStyle = endActive ? themePlayhead : color;
     ctx.beginPath();
-    ctx.moveTo(xEnd + 1, triBase);
-    ctx.lineTo(xEnd + 1, triBase + triDir * triH);
-    ctx.lineTo(xEnd + 1 - triW, triBase);
+    ctx.moveTo(xEnd, triBase);
+    ctx.lineTo(xEnd, triBase + triDir * triH);
+    ctx.lineTo(xEnd - triW, triBase);
     ctx.closePath();
     ctx.fill();
   }
@@ -323,9 +323,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
     // Inward triangle
     ctx.fillStyle = nextColor;
     ctx.beginPath();
-    ctx.moveTo(xPending - 1, triBase);
-    ctx.lineTo(xPending - 1, triBase + triDir * triH);
-    ctx.lineTo(xPending - 1 + triW, triBase);
+    ctx.moveTo(xPending, triBase);
+    ctx.lineTo(xPending, triBase + triDir * triH);
+    ctx.lineTo(xPending + triW, triBase);
     ctx.closePath();
     ctx.fill();
   }
@@ -350,9 +350,9 @@ export function drawWaveform(canvas: HTMLCanvasElement, opts: DrawOptions): void
       ctx.fillStyle = hexToRgba(nextColor, 0.35);
       ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.moveTo(x + 1, triBase);
-      ctx.lineTo(x + 1, triBase + triDir * triH);
-      ctx.lineTo(x + 1 - triW, triBase);
+      ctx.moveTo(x, triBase);
+      ctx.lineTo(x, triBase + triDir * triH);
+      ctx.lineTo(x - triW, triBase);
       ctx.closePath();
       ctx.fill();
       ctx.setLineDash([3, 5]);
