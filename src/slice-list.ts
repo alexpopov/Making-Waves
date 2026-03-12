@@ -133,8 +133,22 @@ export class SliceList {
     const delBtn = document.createElement('button');
     delBtn.innerHTML = icons.trash;
     delBtn.title = 'Delete';
+    let deleteConfirmTimer: ReturnType<typeof setTimeout> | null = null;
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const isTouch = (e as PointerEvent).pointerType === 'touch' || 'ontouchstart' in window;
+      if (isTouch && !delBtn.dataset['confirming']) {
+        delBtn.dataset['confirming'] = '1';
+        delBtn.style.color = '#e74c3c';
+        delBtn.title = 'Tap again to delete';
+        deleteConfirmTimer = setTimeout(() => {
+          delete delBtn.dataset['confirming'];
+          delBtn.style.color = '';
+          delBtn.title = 'Delete';
+        }, 2000);
+        return;
+      }
+      if (deleteConfirmTimer) clearTimeout(deleteConfirmTimer);
       this.ctx.saveSnapshot();
       this.ctx.removeSlice(i);
     });
