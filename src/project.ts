@@ -94,6 +94,42 @@ export async function buildProjectZip(
   return createZip(entries);
 }
 
+export interface SidecarData {
+  projectName: string;
+  sampleRate: number;
+  totalSamples: number;
+  slices: { start: number; end: number; name?: string }[];
+}
+
+/**
+ * Parse a standalone .waves.json sidecar file.
+ * Validates that the sampleRate and totalSamples match the loaded buffer.
+ * Throws a descriptive error if the sidecar is incompatible.
+ */
+export async function loadSidecarJson(file: File, audioBuffer: AudioBuffer): Promise<SidecarData> {
+  const text = await file.text();
+  const data = JSON.parse(text) as Sidecar;
+
+  if (data.sampleRate !== audioBuffer.sampleRate) {
+    throw new Error(
+      `Sidecar sample rate (${data.sampleRate} Hz) does not match loaded audio (${audioBuffer.sampleRate} Hz).`
+    );
+  }
+  if (data.totalSamples !== audioBuffer.length) {
+    throw new Error(
+      `Sidecar length (${data.totalSamples} samples) does not match loaded audio (${audioBuffer.length} samples). ` +
+      `Make sure you're loading the sidecar for "${data.originalFile}".`
+    );
+  }
+
+  return {
+    projectName: data.projectName ?? data.originalFile.replace(/\.wav$/i, ''),
+    sampleRate: data.sampleRate,
+    totalSamples: data.totalSamples,
+    slices: data.slices,
+  };
+}
+
 /** Build a standalone sidecar JSON blob (no audio). */
 export function buildSidecarJson(
   slices: { start: number; end: number; name?: string }[],

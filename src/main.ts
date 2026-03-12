@@ -26,7 +26,7 @@ import {
 import { registerKeyboard } from './keyboard.js';
 import { playRegion, stop, setCallbacks, getPlaybackState, updateLoopBounds } from './player.js';
 import { encodeWav, downloadBlob, requestSaveHandle, writeBlobTo } from './wav-writer.js';
-import { loadProjectZip, buildProjectZip, buildSidecarJson } from './project.js';
+import { loadProjectZip, buildProjectZip, buildSidecarJson, loadSidecarJson } from './project.js';
 import { pushUndo, undo, redo, cloneSnapshot, clearHistory, canUndo, canRedo, type Snapshot } from './undo.js';
 import { monoMix, detectTransients, snapAllToZeroCrossingsBefore } from './dsp.js';
 import { toggleZoom } from './zoom.js';
@@ -52,6 +52,8 @@ const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const btnSettings = document.getElementById('btn-settings') as HTMLButtonElement;
 const btnSaveProject = document.getElementById('btn-save-project') as HTMLButtonElement;
 const btnSaveJson = document.getElementById('btn-save-json') as HTMLButtonElement;
+const btnLoadJson = document.getElementById('btn-load-json') as HTMLButtonElement;
+const sidecarInput = document.getElementById('sidecar-input') as HTMLInputElement;
 const btnUndo = document.getElementById('btn-undo') as HTMLButtonElement;
 const btnRedo = document.getElementById('btn-redo') as HTMLButtonElement;
 const btnNudgeLeft = document.getElementById('btn-nudge-left') as HTMLButtonElement;
@@ -706,6 +708,37 @@ async function saveProject(): Promise<void> {
 
 btnSaveProject.addEventListener('click', () => {
   saveProject().catch(err => console.error('[making-waves] Save error:', err));
+});
+
+btnLoadJson.addEventListener('click', () => {
+  sidecarInput.value = '';
+  sidecarInput.click();
+});
+
+sidecarInput.addEventListener('change', async () => {
+  const file = sidecarInput.files?.[0];
+  if (!file || !slicer || !audioBuffer) return;
+  try {
+    const data = await loadSidecarJson(file, audioBuffer);
+    saveSnapshot();
+    // Replace all current slices with those from the sidecar
+    slicer.slices = [];
+    for (const s of data.slices) {
+      beginSlice(slicer, s.start);
+      const idx = endSlice(slicer, s.end);
+      if (idx >= 0 && s.name) slicer.slices[idx].name = s.name.trim() || undefined;
+    }
+    projectName = data.projectName;
+    projectTitleEl.textContent = projectName;
+    selectedSlice = slicer.slices.length > 0 ? 0 : null;
+    selectedMarker = null;
+    invalidatePeaks();
+    redraw();
+    renderSliceList();
+    debug(`Sidecar loaded: ${data.slices.length} slices`);
+  } catch (err) {
+    alert(`Could not load sidecar: ${err}`);
+  }
 });
 
 btnSaveJson.addEventListener('click', async () => {
