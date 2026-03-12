@@ -61,6 +61,16 @@ const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
 const btnDeleteSlice = document.getElementById('btn-delete-slice') as HTMLButtonElement;
 const cutZone = document.getElementById('cut-zone') as HTMLElement;
 const markerHint = document.getElementById('marker-hint') as HTMLDivElement;
+const loadingOverlay = document.getElementById('loading-overlay') as HTMLDivElement;
+const loadingMessage = document.getElementById('loading-message') as HTMLParagraphElement;
+
+function showLoading(msg: string): void {
+  loadingMessage.textContent = msg;
+  loadingOverlay.classList.remove('hidden');
+}
+function hideLoading(): void {
+  loadingOverlay.classList.add('hidden');
+}
 const closeDialog = document.getElementById('close-dialog') as HTMLDialogElement;
 const closeDialogSave = document.getElementById('close-dialog-save') as HTMLButtonElement;
 const closeDialogDiscard = document.getElementById('close-dialog-discard') as HTMLButtonElement;
@@ -205,6 +215,7 @@ function openSession(
 
 async function loadFile(file: File): Promise<void> {
   debug('Loading file:', file.name, `(${(file.size / 1024 / 1024).toFixed(1)} MB)`);
+  showLoading(`Loading ${file.name}…`);
   try {
     const buffer = await decodeAudioFile(file);
     debug('Decoded:', {
@@ -219,6 +230,8 @@ async function loadFile(file: File): Promise<void> {
   } catch (err) {
     console.error('[making-waves] Load error:', err);
     alert(`Error loading file: ${err}`);
+  } finally {
+    hideLoading();
   }
 }
 
@@ -254,6 +267,7 @@ function closeProject(): void {
 // --- Load project from ZIP ---
 async function loadProject(file: File): Promise<void> {
   debug('Loading project:', file.name);
+  showLoading(`Loading project…`);
   try {
     const data = await loadProjectZip(file);
     openSession(data.audioBuffer, data.originalFile, data.projectName, data.slices);
@@ -261,6 +275,8 @@ async function loadProject(file: File): Promise<void> {
   } catch (err) {
     console.error('[making-waves] Project load error:', err);
     alert(`Error loading project: ${err}`);
+  } finally {
+    hideLoading();
   }
 }
 
