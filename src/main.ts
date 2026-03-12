@@ -162,7 +162,7 @@ function openSession(
   for (const s of slices) {
     beginSlice(slicer, s.start);
     const idx = endSlice(slicer, s.end);
-    if (idx >= 0 && s.name) slicer.slices[idx].name = s.name;
+    if (idx >= 0 && s.name) slicer.slices[idx].name = s.name.trim() || undefined;
   }
 
   selectedSlice = null;
@@ -191,7 +191,7 @@ async function loadFile(file: File): Promise<void> {
     });
     // Save raw WAV bytes to IDB once — the file never changes after upload
     file.arrayBuffer().then(ab => saveBufferToIDB(ab)).catch(() => {/* quota */ });
-    openSession(buffer, file, file.name.replace(/\.wav$/i, ''));
+    openSession(buffer, file, file.name.replace(/\.wav$/i, '').trim());
   } catch (err) {
     console.error('[making-waves] Load error:', err);
     alert(`Error loading file: ${err}`);
