@@ -1064,7 +1064,7 @@ const sliceList = new SliceList(slicesUl, {
 
 function renderSliceList(): void {
   if (!slicer || !audioBuffer) return;
-  sliceList.render(slicer.slices, audioBuffer.sampleRate, selectedSlice);
+  sliceList.render(slicer.slices, audioBuffer.sampleRate, selectedSlice, projectName);
   btnDeleteSlice.disabled = selectedSlice === null;
   debouncedSaveMeta();
 }

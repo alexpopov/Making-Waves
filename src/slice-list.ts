@@ -30,7 +30,7 @@ export class SliceList {
     private readonly ctx: SliceListContext,
   ) {}
 
-  render(slices: Slice[], sampleRate: number, selectedSlice: number | null): void {
+  render(slices: Slice[], sampleRate: number, selectedSlice: number | null, projectName = ''): void {
     if (slices.length === 0) {
       this.clearRows();
       if (!this.emptyHint) {
@@ -60,7 +60,7 @@ export class SliceList {
     }
 
     for (let i = 0; i < slices.length; i++) {
-      this.updateRow(this.rows[i], slices[i], i, sampleRate, i === selectedSlice);
+      this.updateRow(this.rows[i], slices[i], i, sampleRate, i === selectedSlice, projectName);
     }
   }
 
@@ -70,6 +70,7 @@ export class SliceList {
     i: number,
     sampleRate: number,
     isSelected: boolean,
+    projectName = '',
   ): void {
     // Never rebuild a row while it is being renamed — the contenteditable
     // span would be destroyed mid-edit.
@@ -85,7 +86,10 @@ export class SliceList {
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'slice-label';
-    nameSpan.textContent = slice.name ?? `#${i + 1}`;
+    const autoName = projectName
+      ? `${projectName}_${String(i + 1).padStart(3, '0')}`
+      : `#${i + 1}`;
+    nameSpan.textContent = slice.name ?? autoName;
     const color = sliceColor(i);
     nameSpan.style.borderLeftColor = color;
     nameSpan.style.borderRightColor = color;
