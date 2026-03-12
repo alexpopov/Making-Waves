@@ -11,6 +11,7 @@ import { cancelPending, removeSlice, moveMarker, type SlicerState } from './slic
 import { playRegion, getPlaybackState } from './player.js';
 import { getViewport } from './viewport.js';
 import { toggleZoom, resetZoom } from './zoom.js';
+import { snapToZeroCrossing } from './dsp.js';
 
 export interface KeyboardContext {
   getSlicer(): SlicerState | null;
@@ -32,6 +33,11 @@ export interface KeyboardContext {
   startRename(): void;
   /** Toggle loop (repeat) mode. */
   toggleLoop(): void;
+}
+
+/** Extract channel 0 from an AudioBuffer for zero-crossing snap. */
+function monoSamples(buf: AudioBuffer): Float32Array {
+  return buf.getChannelData(0);
 }
 
 export function registerKeyboard(ctx: KeyboardContext): void {
@@ -133,8 +139,11 @@ export function registerKeyboard(ctx: KeyboardContext): void {
         const vpLen = vp.end - vp.start;
         const nudge = Math.max(1, Math.round(vpLen * 0.005));
         const delta = left ? -nudge : nudge;
+        const raw = slicer.slices[selectedSlice][selectedMarker] + delta;
+        const audioBuffer = ctx.getAudioBuffer();
+        const target = audioBuffer ? snapToZeroCrossing(monoSamples(audioBuffer), raw) : raw;
         ctx.saveSnapshot();
-        const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, slicer.slices[selectedSlice][selectedMarker] + delta);
+        const newIdx = moveMarker(slicer, selectedSlice, selectedMarker, target);
         ctx.setSelection(newIdx, selectedMarker);
       }
     }
@@ -146,8 +155,13 @@ export function registerKeyboard(ctx: KeyboardContext): void {
       const vp = getViewport();
       const nudge = Math.max(1, Math.round((vp.end - vp.start) * 0.005));
       const delta = left ? -nudge : nudge;
+      const rawPending = slicer.pendingStart + delta;
+      const audioBuf = ctx.getAudioBuffer();
+      const snappedPending = audioBuf
+        ? snapToZeroCrossing(monoSamples(audioBuf), rawPending)
+        : rawPending;
       ctx.saveSnapshot();
-      slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, slicer.pendingStart + delta));
+      slicer.pendingStart = Math.max(0, Math.min(slicer.totalSamples, snappedPending));
       ctx.redraw();
     }
 
