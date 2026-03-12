@@ -30,6 +30,8 @@ export interface KeyboardContext {
   redraw(): void;
   /** Enter inline rename mode for the selected slice. */
   startRename(): void;
+  /** Toggle loop (repeat) mode. */
+  toggleLoop(): void;
 }
 
 export function registerKeyboard(ctx: KeyboardContext): void {
@@ -164,6 +166,12 @@ export function registerKeyboard(ctx: KeyboardContext): void {
     if (e.key === ',' && slicer && selectedSlice !== null && selectedSlice < slicer.slices.length) {
       e.preventDefault();
       ctx.startRename();
+    }
+
+    // r — toggle loop
+    if (e.key === 'r' && !mod) {
+      e.preventDefault();
+      ctx.toggleLoop();
     }
   });
 }

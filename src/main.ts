@@ -568,6 +568,9 @@ registerKeyboard({
   startRename() {
     if (selectedSlice !== null) doRenameSlice(selectedSlice);
   },
+  toggleLoop() {
+    doToggleLoop();
+  },
 });
 
 // --- Transport controls ---
@@ -579,7 +582,7 @@ btnPlay.addEventListener('click', () => {
   }
 });
 
-btnLoop.addEventListener('click', () => {
+function doToggleLoop(): void {
   isLooping = !isLooping;
   btnLoop.classList.toggle('active', isLooping);
 
@@ -593,7 +596,9 @@ btnLoop.addEventListener('click', () => {
       playRegion(audioBuffer, ps.currentSample, ps.endSample, false);
     }
   }
-});
+}
+
+btnLoop.addEventListener('click', doToggleLoop);
 
 btnStop.addEventListener('click', () => {
   stop();
