@@ -61,6 +61,30 @@ const btnEsc = document.getElementById('btn-esc') as HTMLButtonElement;
 const btnDeleteSlice = document.getElementById('btn-delete-slice') as HTMLButtonElement;
 const cutZone = document.getElementById('cut-zone') as HTMLElement;
 const markerHint = document.getElementById('marker-hint') as HTMLDivElement;
+const closeDialog = document.getElementById('close-dialog') as HTMLDialogElement;
+const closeDialogSave = document.getElementById('close-dialog-save') as HTMLButtonElement;
+const closeDialogDiscard = document.getElementById('close-dialog-discard') as HTMLButtonElement;
+const closeDialogCancel = document.getElementById('close-dialog-cancel') as HTMLButtonElement;
+
+/** Show the close-project dialog. Resolves to 'save', 'discard', or 'cancel'. */
+function confirmClose(): Promise<'save' | 'discard' | 'cancel'> {
+  return new Promise((resolve) => {
+    const cleanup = (result: 'save' | 'discard' | 'cancel') => {
+      closeDialog.close();
+      closeDialogSave.removeEventListener('click', onSave);
+      closeDialogDiscard.removeEventListener('click', onDiscard);
+      closeDialogCancel.removeEventListener('click', onCancel);
+      resolve(result);
+    };
+    const onSave    = () => cleanup('save');
+    const onDiscard = () => cleanup('discard');
+    const onCancel  = () => cleanup('cancel');
+    closeDialogSave.addEventListener('click', onSave);
+    closeDialogDiscard.addEventListener('click', onDiscard);
+    closeDialogCancel.addEventListener('click', onCancel);
+    closeDialog.showModal();
+  });
+}
 
 // --- App state ---
 let audioBuffer: AudioBuffer | null = null;
@@ -261,8 +285,9 @@ document.addEventListener('pointerdown', (e) => {
 // --- Close project ---
 btnClose.addEventListener('click', async () => {
   if (!audioBuffer) return;
-  const shouldSave = confirm('Save project before closing?');
-  if (shouldSave) await saveProject();
+  const result = await confirmClose();
+  if (result === 'cancel') return;
+  if (result === 'save') await saveProject();
   closeProject();
 });
 
