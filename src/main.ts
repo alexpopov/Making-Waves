@@ -1104,6 +1104,12 @@ document.addEventListener('visibilitychange', () => {
   saveMeta();
 });
 
+// pagehide fires on iOS when Safari kills the tab — visibilitychange
+// sometimes does not fire reliably before eviction
+window.addEventListener('pagehide', () => {
+  saveMeta();
+});
+
 // --- Restore session on startup ---
 (async () => {
   const meta = loadMetaFromLS();
