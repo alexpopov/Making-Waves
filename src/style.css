@@ -61,6 +61,7 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Prevent text selection and iOS long-press callout on interactive elements */
