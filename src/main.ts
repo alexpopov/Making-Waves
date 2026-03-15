@@ -42,6 +42,7 @@ const btnClose = document.getElementById('btn-close') as HTMLButtonElement;
 const startScreen = document.getElementById('start-screen') as HTMLElement;
 const btnLoadWav = document.getElementById('btn-load-wav') as HTMLButtonElement;
 const btnLoadProject = document.getElementById('btn-load-project') as HTMLButtonElement;
+const btnLoadExample = document.getElementById('btn-load-example') as HTMLButtonElement;
 const editor = document.getElementById('editor') as HTMLElement;
 const canvas = document.getElementById('waveform') as HTMLCanvasElement;
 const btnPlay = document.getElementById('btn-play') as HTMLButtonElement;
@@ -160,6 +161,22 @@ projectInput.addEventListener('change', () => {
   if (file) loadProject(file).catch(err => console.error('[making-waves] Unhandled project load error:', err));
   projectInput.value = '';  // reset so re-selecting the same file triggers change
 });
+
+async function loadExample(): Promise<void> {
+  showLoading('Loading example project…');
+  try {
+    const res = await fetch('/example.zip');
+    if (!res.ok) throw new Error(`Example not found (${res.status}). Drop example.zip into public/.`);
+    const blob = await res.blob();
+    const file = new File([blob], 'example.zip', { type: 'application/zip' });
+    await loadProject(file);
+  } catch (err) {
+    hideLoading();
+    alert(`Could not load example: ${err}`);
+  }
+}
+
+btnLoadExample.addEventListener('click', loadExample);
 
 // Drag-and-drop
 document.addEventListener('dragover', (e) => {
@@ -1145,6 +1162,12 @@ window.addEventListener('pagehide', () => {
 
 // --- Restore session on startup ---
 (async () => {
+  // ?example in the URL takes priority — skip any saved session
+  if (new URLSearchParams(location.search).has('example')) {
+    loadExample();
+    return;
+  }
+
   const meta = loadMetaFromLS();
   if (!meta) return;
 

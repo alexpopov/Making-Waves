@@ -178,6 +178,13 @@ button svg {
 
 #start-buttons {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+#start-buttons .primary-row {
+  display: flex;
   gap: 24px;
 }
 
@@ -196,6 +203,21 @@ button svg {
 #start-buttons button:hover {
   border-color: var(--highlight);
   background: var(--accent);
+}
+
+#start-buttons .btn-secondary {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 400;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-dim, rgba(255,255,255,0.45));
+}
+
+#start-buttons .btn-secondary:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
 }
 
 /* Editor area */
