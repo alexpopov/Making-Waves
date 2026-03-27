@@ -89,8 +89,11 @@ export async function decodeAudioFile(file: File): Promise<AudioBuffer> {
 /**
  * Decode a raw WAV ArrayBuffer into an AudioBuffer.
  * Used when restoring a session from IndexedDB (no File object needed).
+ *
+ * Uses getAudioContext() instead of ensureResumed() so it doesn't block
+ * on a user gesture — decodeAudioData works on a suspended context.
  */
 export async function decodeAudioData(arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
-  const ac = await ensureResumed();
+  const ac = getAudioContext();
   return ac.decodeAudioData(arrayBuffer);
 }
