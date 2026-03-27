@@ -20,6 +20,29 @@ interface Sidecar {
   slices: { start: number; end: number; name?: string }[];
 }
 
+/**
+ * Rescale slice positions when the sidecar was saved at a different sample
+ * rate than the current AudioContext decoded the audio to.
+ *
+ * Web Audio's decodeAudioData resamples to the AudioContext's sample rate,
+ * which varies by device (e.g. 48 kHz on iOS, 44.1 kHz on a Mac with a
+ * 44.1 kHz audio interface). Slice positions stored as sample frames must
+ * be converted to the new rate or they drift — increasingly toward the end.
+ */
+function rescaleSlices(
+  slices: { start: number; end: number; name?: string }[],
+  fromRate: number,
+  toRate: number,
+): { start: number; end: number; name?: string }[] {
+  if (fromRate === toRate) return slices;
+  const ratio = toRate / fromRate;
+  return slices.map(s => ({
+    start: Math.round(s.start * ratio),
+    end: Math.round(s.end * ratio),
+    name: s.name,
+  }));
+}
+
 export interface ProjectData {
   audioBuffer: AudioBuffer;
   originalFile: File;
@@ -49,8 +72,9 @@ export async function loadProjectZip(file: File): Promise<ProjectData> {
 
   const audioBuffer = await decodeAudioFile(wavFile);
   const projectName = sidecar.projectName ?? sidecar.originalFile.replace(/\.wav$/i, '');
+  const slices = rescaleSlices(sidecar.slices, sidecar.sampleRate, audioBuffer.sampleRate);
 
-  return { audioBuffer, originalFile: wavFile, slices: sidecar.slices, projectName };
+  return { audioBuffer, originalFile: wavFile, slices, projectName };
 }
 
 /** Build a ZIP bundle: original WAV + sidecar JSON + per-slice WAVs. */
@@ -110,23 +134,26 @@ export async function loadSidecarJson(file: File, audioBuffer: AudioBuffer): Pro
   const text = await file.text();
   const data = JSON.parse(text) as Sidecar;
 
-  if (data.sampleRate !== audioBuffer.sampleRate) {
+  // Sample rate may differ if the sidecar was created on a device whose
+  // AudioContext ran at a different rate (e.g. 48 kHz iOS vs 44.1 kHz Mac).
+  // Rescale positions instead of rejecting the file.
+  const slices = rescaleSlices(data.slices, data.sampleRate, audioBuffer.sampleRate);
+
+  // Verify total length matches after accounting for resampling.
+  const expectedSamples = Math.round(data.totalSamples * audioBuffer.sampleRate / data.sampleRate);
+  if (Math.abs(expectedSamples - audioBuffer.length) > 1) {
     throw new Error(
-      `Sidecar sample rate (${data.sampleRate} Hz) does not match loaded audio (${audioBuffer.sampleRate} Hz).`
-    );
-  }
-  if (data.totalSamples !== audioBuffer.length) {
-    throw new Error(
-      `Sidecar length (${data.totalSamples} samples) does not match loaded audio (${audioBuffer.length} samples). ` +
+      `Sidecar length (${data.totalSamples} samples at ${data.sampleRate} Hz) does not match ` +
+      `loaded audio (${audioBuffer.length} samples at ${audioBuffer.sampleRate} Hz). ` +
       `Make sure you're loading the sidecar for "${data.originalFile}".`
     );
   }
 
   return {
     projectName: data.projectName ?? data.originalFile.replace(/\.wav$/i, ''),
-    sampleRate: data.sampleRate,
-    totalSamples: data.totalSamples,
-    slices: data.slices,
+    sampleRate: audioBuffer.sampleRate,
+    totalSamples: audioBuffer.length,
+    slices,
   };
 }
 

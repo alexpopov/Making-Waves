@@ -289,6 +289,8 @@ async function loadProject(file: File): Promise<void> {
   showLoading(`Loading project…`);
   try {
     const data = await loadProjectZip(file);
+    // Save raw WAV bytes to IDB so the session can be restored on next launch
+    data.originalFile.arrayBuffer().then(ab => saveBufferToIDB(ab)).catch(() => {/* quota */});
     openSession(data.audioBuffer, data.originalFile, data.projectName, data.slices);
     debug(`Project loaded: ${data.slices.length} slices restored`);
   } catch (err) {
@@ -1171,8 +1173,10 @@ window.addEventListener('pagehide', () => {
   const meta = loadMetaFromLS();
   if (!meta) return;
 
+  showLoading(`Restoring "${meta.projectName}"…`);
+
   const rawWav = await loadBufferFromIDB();
-  if (!rawWav) return;
+  if (!rawWav) { hideLoading(); return; }
 
   try {
     // Re-decode from the stored raw WAV bytes — never stores decoded PCM
@@ -1184,5 +1188,7 @@ window.addEventListener('pagehide', () => {
     // Corrupted data — clear and start fresh
     console.error('[making-waves] Session restore failed:', err);
     clearSession();
+  } finally {
+    hideLoading();
   }
 })();
